@@ -545,7 +545,10 @@ inline DoubleDouble DoubleDouble::exp() const
                      201132771840)*x + 2514159648000)*x -
                      23465490048000)*x + 154872234316800)*x -
                      647647525324800)*x + 1295295050649600;
-    return dd_e.powi(n) * (u / v);
+    // printf("\nexp_arg=%23.17e,%23.17E\n", this->upper, this->lower);
+    DoubleDouble result = dd_e.powi(n) * (u / v);
+    // printf("\nexp_res=%23.17e,%23.17E\n", result.upper, result.lower);
+    return result;
 }
 
 inline DoubleDouble DoubleDouble::sqrt() const
@@ -564,9 +567,13 @@ inline DoubleDouble DoubleDouble::sqrt() const
 // result.
 inline DoubleDouble DoubleDouble::log() const
 {
+    //printf("\nla=%23.17e,%23.17E\n", this->upper, this->lower);
     DoubleDouble r(std::log(upper));
     DoubleDouble u = r.exp();
+    //printf("r0=%23.17e,%23.17E\n", r.upper, r.lower);
     r = r - DoubleDouble(2.0)*(u - *this)/(u + *this);
+    //printf("r1=%23.17e,%23.17E\n", r.upper, r.lower);
+
     return r;
 }
 
@@ -585,9 +592,23 @@ inline DoubleDouble DoubleDouble::log() const
 //
 inline DoubleDouble DoubleDouble::log1p() const
 {
-    if ((*this).abs() < 1e-5) {
-        // Taylor polynomial:
-        return (*this)*(1.0 + (*this)*(-0.5 + (*this)*(1.0/DoubleDouble(3.0) + (*this)*(-0.25 + (*this)*(1.0/DoubleDouble(5.0) - (*this)/6.0)))));
+    // if ((*this).abs() < 1e-5) {
+    //     // Taylor polynomial:
+    //     return (*this)*(1.0 + (*this)*(-0.5 + (*this)*(1.0/DoubleDouble(3.0) + (*this)*(-0.25 + (*this)*(1.0/DoubleDouble(5.0) - (*this)/6.0)))));
+    // }
+    if ((*this).abs() < 0.5) {
+        DoubleDouble guess = std::log1p(this->upper);
+        // log(x+1) = y
+        // x + 1 = exp(y)
+        // x = exp(y) - 1
+        // f(y) = exp(y) - 1 - x, find y so that f(y) == 0 (using newton's method)
+        // f'(y) = exp(y)
+        // delta_y := -f(y)/f'(y) = (x - expm1(y)/exp(y) ; <-- single Newton step
+        // Quadratic convergence of newton's method means that correct mantissa bits
+        // are doubled each iteration, hence a single iteration should be enough here.
+        DoubleDouble em1 = guess.expm1();
+        guess += ((*this) - em1) / (1 + em1);
+        return guess;
     }
     DoubleDouble xp1 = (*this) + 1.0;
     return xp1.log();
@@ -656,7 +677,10 @@ inline DoubleDouble expm1_rational_approx(const DoubleDouble& x)
                                                *x + denom[2])
                                                *x + denom[1])
                                                *x + denom[0]);
-    return x*Y + x * num/den;
+    // printf("\nem1a=%23.17e,%23.17E\n", x.upper, x.lower);
+    DoubleDouble result = x*Y + x * num/den;
+    // printf("\nem1r=%23.17e,%23.17E\n", result.upper, result.lower);
+    return result;
 }
 
 
@@ -759,5 +783,18 @@ inline bool isnan(DoubleDouble const& arg)
     return std::isnan(arg.upper) || std::isnan(arg.lower);
 }
 }
-
+namespace std {
+  template <>
+  class numeric_limits<doubledouble::DoubleDouble> : public numeric_limits<double> {
+  public:
+      inline static double epsilon() { return 4.93038065763132e-32; /* exp2(-digits)*/ }
+      inline static doubledouble::DoubleDouble infinity() { return {numeric_limits<double>::infinity(), 0}; }
+      inline static doubledouble::DoubleDouble max() { return {1.797693134862315708e+308, 9.97920154767359795e+291}; }
+      inline static doubledouble::DoubleDouble safe_max() { return {1.797693134862315708e+308, 9.97920154767359795e+291}; }
+      inline static doubledouble::DoubleDouble quiet_NaN() { return {numeric_limits<double>::quiet_NaN(), numeric_limits<double>::quiet_NaN()}; }
+      inline static double min() { return 2.0041683600089728e-292; /* exp2(-1022 + n_mantissa_bits + 1)*/ }
+      static const int digits = 104;
+      static const int digits10 = 31;
+  };
+}
 #endif
