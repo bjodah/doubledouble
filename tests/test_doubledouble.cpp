@@ -293,8 +293,8 @@ void test_abs(CheckIt& test)
     auto x = DoubleDouble(-7.0, -3e-18);
 
     a = x.abs();
-    assert_equal_fp(test, a.upper, 7.0, "abs(3 - x) (upper)");
-    assert_equal_fp(test, a.lower, 3e-18, "abs(3 - x) (lower)");
+    assert_equal_fp(test, a.upper, 7.0, "abs(x) (upper)");
+    assert_equal_fp(test, a.lower, 3e-18, "abs(x) (lower)");
 
     a = DoubleDouble(NAN).abs();
     assert_isnan(test, a);
@@ -435,8 +435,8 @@ void test_exp(CheckIt& test)
     assert_equal_fp(test, y.lower, -1.3488747091995788e-15, "exp(pi) (lower)");
 
     y = (x - 10.0).exp();
-    assert_equal_fp(test, y.upper, 1.0, "exp(x - 10) - 1 (upper)");
-    assert_equal_fp(test, y.lower, 3e-18, "exp(x - 10) - 1 (lower)");
+    assert_equal_fp(test, y.upper, 1.0, "exp(x - 10) (upper)");
+    assert_equal_fp(test, y.lower, 3e-18, "exp(x - 10) (lower)");
 
     y = t.exp();
     assert_equal_fp(test, y.upper, 1.0000000000000038, "exp(t) (upper)");
@@ -461,6 +461,10 @@ void test_expm1(CheckIt& test)
     DoubleDouble y;
     auto t = DoubleDouble(3.7500950075008e-15, 0.0);
 
+    y = DoubleDouble(11.75).expm1();
+    assert_equal_fp(test, y.upper, 126752.55900574342, "expm1(11.75) upper");
+    assert_close_fp(test, y.lower, 2.550992675486234e-12, 1e-15, "expm1(11.75) lower");
+
     y = DoubleDouble(1.0).expm1();
     assert_equal_fp(test, y.upper, 1.7182818284590453, "expm1(1) upper");
     assert_equal_fp(test, y.lower, -7.747991575210629e-17, "expm1(1) lower");
@@ -481,6 +485,10 @@ void test_expm1(CheckIt& test)
     assert_equal_fp(test, y.upper, -0.37421599039540887, "expm1(-0.46875) upper");
     assert_equal_fp(test, y.lower, -7.658883125910196e-18, "expm1(-0.46875) lower");
 
+    y = DoubleDouble(-17.5).expm1();
+    assert_equal_fp(test, y.upper, -0.9999999748900085, "expm1(-17.5) upper");
+    assert_equal_fp(test, y.lower, 2.6947836187301293e-17, "expm1(-17.5) lower");
+
     y = DoubleDouble(NAN).expm1();
     assert_isnan(test, y);
 }
@@ -500,6 +508,12 @@ void test_hypot(CheckIt& test)
     h = hypot(x, y);
     assert_equal_fp(test, h.upper, 0.0, "hypot((0, 0), (0, 0)) (upper)");
     assert_equal_fp(test, h.lower, 0.0, "hypot((0, 0), (0, 0)) (lower)");
+
+    x = DoubleDouble(1.0) / 3.0;
+    y = DoubleDouble(7.0) / 5.0;
+    h = hypot(x, y);
+    assert_equal_fp(test, h.upper, 1.4391355429948602, "hypot(1/3, 7/5) (upper)");
+    assert_equal_fp(test, h.lower, -3.962996388323609e-17, "hypot(1/3, 7/5)) (lower)");
 
     //
     // Reference values for the overflow and underflow tests of hypot

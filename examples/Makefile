@@ -1,12 +1,21 @@
-CXXFLAGS = -Wall -Werror -std=c++17 -I../include
+CXXFLAGS = -pedantic -Wall -Werror -std=c++17 -I../include
 
-all: demo readme_example
+ifeq ($(OS),Windows_NT)
+    DETECTED_OS := Windows
+else
+    DETECTED_OS := $(shell uname -s)
+endif
 
-demo: demo.cpp
-	g++ $(CXXFLAGS) demo.cpp -o demo
+ifeq ($(DETECTED_OS),Darwin)
+	CXXFLAGS += -mmacosx-version-min=13.3
+endif
 
-readme_example: readme_example.cpp
-	g++ $(CXXFLAGS) readme_example.cpp -o readme_example
+EXECUTABLES = demo readme_example one_third find_eps
+
+all: $(EXECUTABLES)
+
+$(EXECUTABLES): %: %.cpp
+	$(CXX) $(CXXFLAGS) $< -o  $@
 
 clean:
-	rm -rf demo
+	rm -f $(EXECUTABLES)
