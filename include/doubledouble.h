@@ -699,4 +699,31 @@ inline double dsum(const std::array<double, N>& x)
 
 } // namespace
 
+namespace doubledouble { // some missing functions for writing generic code employing "using std::fabs", etc.
+inline DoubleDouble fabs(DoubleDouble const& arg)
+{
+    return arg.abs();
+}
+
+inline DoubleDouble exp(DoubleDouble const& arg)
+{
+    return arg.exp();
+}
+
+inline DoubleDouble log1p(DoubleDouble const& arg)
+{
+    return arg.log1p();
+}
+
+inline DoubleDouble log(DoubleDouble const& arg)
+{
+    return arg.log();
+}
+
+inline bool isnan(DoubleDouble const& arg)
+{
+    return std::isnan(arg.upper) || std::isnan(arg.lower);
+}
+}
+
 #endif
