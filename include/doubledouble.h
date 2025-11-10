@@ -782,6 +782,22 @@ inline bool isnan(DoubleDouble const& arg)
 {
     return std::isnan(arg.upper) || std::isnan(arg.lower);
 }
+inline DoubleDouble scalbn(DoubleDouble const& arg, int expo) {
+    return DoubleDouble(std::scalbn(arg.upper, expo), std::scalbn(arg.lower, expo));
+}
+inline DoubleDouble tanh(DoubleDouble const& x) {
+    // see _derivation_expm1.ipynb
+    DoubleDouble absx = fabs(x);
+    if (absx.upper > 0.5) {
+        // TODO, implement this branch using a table lookup (of polynomial coefficients) instead?
+        DoubleDouble ex = exp(x);
+        DoubleDouble emx = exp(-x);
+        return (ex-emx)/(ex+emx);
+    }
+    int expo;
+    DoubleDouble m = frexp(x, &expo);
+#include "doubledouble_tanh_impl.ipp"
+}
 }
 namespace std {
   template <>
