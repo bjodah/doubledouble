@@ -396,7 +396,7 @@ void test_log1p(CheckIt& test)
         {5e-16, 1.5, 5e-19, 0.9162907318741551, -4.121195369011963e-17},
         {5e-16, 3.0, 0.0, 1.3862943611198906, 4.638093627692599e-17}
     };
-    
+
     for (size_t i = 0; i < sizeof(samples)/sizeof(struct log1p_case); ++i) {
         struct log1p_case sample = samples[i];
         DoubleDouble x{sample.xhi, sample.xlo};
@@ -454,6 +454,20 @@ void test_exp(CheckIt& test)
 
     y = DoubleDouble(NAN).exp();
     assert_isnan(test, y);
+
+    y = DoubleDouble(-1317.0).exp(); // 1.08e-572
+    assert_equal_fp(test, y.upper, 0.0, "exp(-1317) (upper)");
+    assert_equal_fp(test, y.lower, 0.0, "exp(-1317) (lower)");
+
+    // >>> em669 = exp(-669).evalf(36)
+    // >>> f = float(em669)
+    // >>> e = float(em669 - f)
+    // >>> f, e, em669
+    // (2.864122616676439e-291, -4.0065259918771103e-308, 2.86412261667643910238552476779313774e-291)
+    y = DoubleDouble(-669.0).exp();
+    assert_equal_fp(test, y.upper, 2.864122616676439e-291, "exp(-669) (upper)");
+    assert_close_fp(test, y.lower, -4.0065259918771103e-308, 4e-14, "exp(-669) (lower)");
+
 }
 
 void test_expm1(CheckIt& test)
@@ -553,6 +567,15 @@ void test_hypot(CheckIt& test)
     assert_equal_fp(test, h.upper, (double) INFINITY, "hypot(INF, NAN) is INF");
 }
 
+void test_tanh(CheckIt &test)
+{
+  DoubleDouble x, y;
+  x = 439.;
+  y = tanh(x);
+  assert_equal_fp(test, y.upper, 1.0, "tanh(438) (upper)");
+  assert_equal_fp(test, y.lower, 0.0, "tanh(438) (lower)");
+}
+
 void test_dsum(CheckIt& test)
 {
     double data1[]{1.0, 3.0, 99.0};
@@ -596,6 +619,7 @@ int main(int argc, char *argv[])
     test_exp(test);
     test_expm1(test);
     test_hypot(test);
+    test_tanh(test);
     test_dsum(test);
 
     return test.print_summary("Summary: ");

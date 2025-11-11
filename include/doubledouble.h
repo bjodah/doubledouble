@@ -71,6 +71,7 @@
 #ifndef DOUBLEDOUBLE_H
 #define DOUBLEDOUBLE_H
 
+#include <cassert>
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
@@ -530,6 +531,10 @@ inline DoubleDouble DoubleDouble::exp() const
     if (upper > 709.782712893384) {
         return dd_inf;
     }
+    if (upper < -745.1332191019411) {
+        // -745: smallest denormal
+        return dd_zero;
+    }
     int n = int(round(upper));
     DoubleDouble x(upper - n, lower);
     DoubleDouble u = (((((((((((x +
@@ -792,7 +797,7 @@ inline DoubleDouble pow(DoubleDouble const &base, DoubleDouble const &expo) {
         expo_integer && (static_cast<long long int>(expo.upper) % 2 == 0);
     bool expo_odd_integer =
         expo_integer && (static_cast<long long int>(expo.upper) % 2 == 1);
-    bool expo_is_posinf = expo_pm_infty && expo.upper > 0;
+    //bool expo_is_posinf = expo_pm_infty && expo.upper > 0;
     bool expo_is_neginf = expo_is_neginf && expo.upper < 0;
     bool base_negative = std::signbit(base.upper);
     bool base_nonzero = base.upper != 0 || base.lower != 0;
@@ -950,6 +955,9 @@ inline DoubleDouble tanh(DoubleDouble const& x) {
     if (x < 0) {
         return -tanh(-x);
     }
+    if (x.upper > 40) {
+        return dd_one;
+    }
     if (x.upper > 4) {
         // tanh(x) = expm1(2x)/(exp(2x) + 1)
         DoubleDouble e2xm1 = (2*x).expm1();
@@ -963,7 +971,7 @@ inline DoubleDouble tanh(DoubleDouble const& x) {
         return (ex-emx)/(ex+emx);
     }
     int expo;
-    DoubleDouble m = frexp(x, &expo);
+    /*DoubleDouble m =*/ frexp(x, &expo);
     // Taylor series
     DoubleDouble x2 = x * x;
     DoubleDouble result {x};
