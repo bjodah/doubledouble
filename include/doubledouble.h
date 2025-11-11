@@ -74,6 +74,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <cfenv>
 #include <cfloat>
 #include <cstdint>
 #include <array>
@@ -929,21 +930,59 @@ inline DoubleDouble frexp(DoubleDouble const& arg, int *expo) {
     double mant = std::frexp(arg.upper, expo);
     return DoubleDouble{mant, std::scalbn(arg.lower, -*expo)};
 }
+inline DoubleDouble fma(DoubleDouble const& x, DoubleDouble const& y, DoubleDouble const& z) {
+    // x*y + z
+    // >>> ((X+x)*(Y+y) + (Z+z)).expand()
+    // X⋅Y + X⋅y + Y⋅x + x⋅y + Z + z
+    DoubleDouble XY = two_product(x.upper, y.upper);
+    DoubleDouble Xy = two_product(x.upper, y.lower);
+    DoubleDouble Yx = two_product(y.upper, x.lower);
+    DoubleDouble xy = two_product(x.lower, y.lower);
+    return (((XY + z) + Xy) + Yx) + xy;
+}
+#include "inline_constexpr_stdarray_taylor_coeffs_tanh.ipp"
+// #include "inline_constexpr_stdarray_cheby_coeffs_tanh_025_05.ipp"
+// #include "inline_constexpr_stdarray_cheby_coeffs_tanh_05_1.ipp"
+// #include "inline_constexpr_stdarray_cheby_coeffs_tanh_1_2.ipp"
+// #include "inline_constexpr_stdarray_cheby_coeffs_tanh_2_4.ipp"
 inline DoubleDouble tanh(DoubleDouble const& x) {
     // see _derivation_expm1.ipynb
     if (x < 0) {
         return -tanh(-x);
     }
-    DoubleDouble absx = fabs(x);
-    if (absx.upper > 0.5) {
-        // TODO, implement this branch using a table lookup (of polynomial coefficients) instead?
+    if (x.upper > 4) {
+        // tanh(x) = expm1(2x)/(exp(2x) + 1)
+        DoubleDouble e2xm1 = (2*x).expm1();
+        return e2xm1/(e2xm1+2);
+    }
+// #include "inline_cheby_impl_tanh.ipp"
+    if (x.upper > 0.25) {
+        // TODO, currently this branch is the worst off
         DoubleDouble ex = exp(x);
         DoubleDouble emx = exp(-x);
         return (ex-emx)/(ex+emx);
     }
     int expo;
     DoubleDouble m = frexp(x, &expo);
-#include "doubledouble_tanh_impl.ipp"
+    // Taylor series
+    DoubleDouble x2 = x * x;
+    DoubleDouble result {x};
+    DoubleDouble xarg {x};
+    int n_terms;
+    if (expo <= -53) {
+        n_terms = 1;
+    } else {
+        n_terms = std::ceil(-32/expo + 3./53*expo + 4);  // heuristic from regression of convergence plot
+    }
+    for (int i=0; i<n_terms; i+=2) {
+        xarg *= x2;
+        //result += taylor_coeffs_tanh[i]*xarg;
+        DoubleDouble term_a = taylor_coeffs_tanh[i]*xarg;
+        xarg *= x2;
+        DoubleDouble term_b = taylor_coeffs_tanh[i+1]*xarg;
+        result += term_a + term_b;  // mitigates cancelation
+    }
+    return result;
     assert(false);
     return {0.0/0.0, 0.0/0.0};
 }
