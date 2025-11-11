@@ -767,6 +767,150 @@ inline DoubleDouble exp(DoubleDouble const& arg)
 {
     return arg.exp();
 }
+inline DoubleDouble expm1(DoubleDouble const& arg)
+{
+    return arg.expm1();
+}
+inline DoubleDouble floor(DoubleDouble const& arg) {
+    return {std::floor(arg.upper), 0.0}; // naive implementation
+}
+inline DoubleDouble ceil(DoubleDouble const& arg) {
+    return {std::ceil(arg.upper), 0.0}; // naive implementation
+}
+inline bool isnan(DoubleDouble const& arg)
+{
+    return std::isnan(arg.upper) || std::isnan(arg.lower);
+}
+inline DoubleDouble pow(DoubleDouble const &base, DoubleDouble const &expo) {
+    bool expo_negative = std::signbit(expo.upper);
+    bool expo_nonzero = expo.upper != 0 || expo.lower != 0;
+    bool expo_pm_infty = std::isinf(expo.upper);
+    bool expo_finite = expo_nonzero && !expo_pm_infty;
+    bool expo_integer = expo == floor(expo);
+    bool expo_even_integer =
+        expo_integer && (static_cast<long long int>(expo.upper) % 2 == 0);
+    bool expo_odd_integer =
+        expo_integer && (static_cast<long long int>(expo.upper) % 2 == 1);
+    bool expo_is_posinf = expo_pm_infty && expo.upper > 0;
+    bool expo_is_neginf = expo_is_neginf && expo.upper < 0;
+    bool base_negative = std::signbit(base.upper);
+    bool base_nonzero = base.upper != 0 || base.lower != 0;
+    bool base_pm_infty = std::isinf(base.upper);
+    bool base_finite = base_nonzero && !base_pm_infty;
+    DoubleDouble abs_base = fabs(base);
+    bool abs_base_lt1 = abs_base < dd_one;
+    bool abs_base_gt1 = abs_base > dd_one;
+    if (!base_nonzero) { // base ±0
+        if (expo_odd_integer) {
+            if (expo_negative) {
+                // pow(-0, exp), where exp is a negative odd integer, returns -∞ and raises FE_DIVBYZERO.
+                std::feraiseexcept(FE_DIVBYZERO);
+                return -dd_inf;
+            } else {
+                // pow(+0, exp), where exp is a negative odd integer, returns +∞ and raises FE_DIVBYZERO.
+                std::feraiseexcept(FE_DIVBYZERO);
+                return dd_inf;
+            }
+        }
+        if (expo_negative && expo_finite && (expo_even_integer || !expo_integer)) {
+            // pow(±0, exp), where exp is negative, finite, and is an even integer or a non-integer, returns +∞ and raises FE_DIVBYZERO.
+            std::feraiseexcept(FE_DIVBYZERO);
+            return dd_inf;
+        }
+        if (expo.upper == -INFINITY) {
+            // pow(±0, -∞) returns +∞ and may raise FE_DIVBYZERO.
+            std::feraiseexcept(FE_DIVBYZERO);
+            return dd_inf;
+        }
+        if (!expo_negative && !expo_even_integer) {
+            if (base_negative) {
+                // pow(-0, exp), where exp is a positive odd integer, returns -0.
+                return {-0.0, -0.0};
+            } else {
+                // pow(+0, exp), where exp is a positive odd integer, returns +0.
+                return dd_zero;
+            }
+        }
+        if (!expo_negative) {
+            // pow(±0, exp), where exp is positive non-integer or a positive even integer, returns +0.
+            return dd_zero;
+        }
+    }
+    if (base == -dd_one && !expo_finite) [[unlikely]] {
+        // pow(-1, ±∞) returns 1.
+        return dd_one;
+    }
+    if (base == dd_one) {
+        // pow(+1, exp) returns 1 for any exp, even when exp is NaN.
+        return dd_one;
+    }
+    if (!expo_nonzero) {
+        // pow(base, ±0) returns 1 for any base, even when base is NaN.
+        return dd_one;
+    }
+    if (base_finite && base_negative && expo_finite && !expo_integer) {
+        // pow(base, exp) returns NaN and raises FE_INVALID if base is finite and negative and exp is finite and non-integer.
+        std::feraiseexcept(FE_INVALID);
+        return {NAN, NAN};
+    }
+    if (expo.upper == -INFINITY) {
+        if (abs_base_lt1) {
+            // pow(base, -∞) returns +∞ for any |base| < 1.
+            return dd_inf;
+        } else if (abs_base_gt1) {
+            // pow(base, -∞) returns +0 for any |base| > 1.
+            return dd_zero;
+        }
+    } else if (expo.upper == INFINITY) {
+        if (abs_base_lt1) {
+            // pow(base, +∞) returns +0 for any |base| < 1.
+            return dd_zero;
+        } else if (abs_base_gt1) {
+            // pow(base, +∞) returns +∞ for any |base| > 1.
+            return dd_inf;
+        }
+    }
+    if (base.upper == -INFINITY) {
+        if (expo_odd_integer) {
+            if (expo_negative) {
+                // pow(-∞, exp) returns -0 if exp is a negative odd integer.
+                return {-0.0, -0.0};
+            } else {
+                // pow(-∞, exp) returns -∞ if exp is a positive odd integer.
+                return -dd_inf;
+            }
+        }
+        if (expo_negative) {
+            // pow(-∞, exp) returns +0 if exp is a negative non-integer or negative even integer.
+            return dd_zero;
+        } else {
+            // pow(-∞, exp) returns +∞ if exp is a positive non-integer or positive even integer.
+            return dd_inf;
+        }
+    } else if (base.upper == +INFINITY){
+        if (expo_negative) {
+            // pow(+∞, exp) returns +0 for any negative exp.
+            return dd_zero;
+        } else {
+            // pow(+∞, exp) returns +∞ for any positive exp.
+            return dd_inf;
+        }
+    }
+    if (isnan(base) || isnan(expo)) {
+        // except where specified above, if any argument is NaN, NaN is returned.
+        return {NAN, NAN};
+    }
+    if (base_negative && expo_integer) {
+        DoubleDouble pow_mbase = ((-base).log()*expo).exp();
+        if (expo_odd_integer) {
+            return -pow_mbase;
+        } else {
+            assert(expo_even_integer);
+            return pow_mbase;
+        }
+    }
+    return (base.log()*expo).exp();
+}
 
 inline DoubleDouble log1p(DoubleDouble const& arg)
 {
@@ -778,15 +922,18 @@ inline DoubleDouble log(DoubleDouble const& arg)
     return arg.log();
 }
 
-inline bool isnan(DoubleDouble const& arg)
-{
-    return std::isnan(arg.upper) || std::isnan(arg.lower);
-}
 inline DoubleDouble scalbn(DoubleDouble const& arg, int expo) {
     return DoubleDouble(std::scalbn(arg.upper, expo), std::scalbn(arg.lower, expo));
 }
+inline DoubleDouble frexp(DoubleDouble const& arg, int *expo) {
+    double mant = std::frexp(arg.upper, expo);
+    return DoubleDouble{mant, std::scalbn(arg.lower, -*expo)};
+}
 inline DoubleDouble tanh(DoubleDouble const& x) {
     // see _derivation_expm1.ipynb
+    if (x < 0) {
+        return -tanh(-x);
+    }
     DoubleDouble absx = fabs(x);
     if (absx.upper > 0.5) {
         // TODO, implement this branch using a table lookup (of polynomial coefficients) instead?
@@ -797,6 +944,8 @@ inline DoubleDouble tanh(DoubleDouble const& x) {
     int expo;
     DoubleDouble m = frexp(x, &expo);
 #include "doubledouble_tanh_impl.ipp"
+    assert(false);
+    return {0.0/0.0, 0.0/0.0};
 }
 }
 namespace std {
