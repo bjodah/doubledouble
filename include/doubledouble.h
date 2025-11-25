@@ -83,6 +83,22 @@
 
 namespace doubledouble {
 
+#if __cplusplus >= 202302L  // C++23
+using std::isinf;
+using std::isnan;
+#else
+constexpr inline bool isnan(double x) noexcept // clang-21 std::isnan is not constexpr?
+{
+    //return x != x;  // IEEE-754 NaN is the only value that satisfies this
+    return __builtin_isnan(x);
+}
+
+constexpr inline bool isinf(double x) noexcept
+{
+  return __builtin_isinf(x);
+}
+#endif
+
 class DoubleDouble
 {
 public:
@@ -96,15 +112,15 @@ public:
     constexpr
     DoubleDouble(double x, double y)
     {
-        if (std::isnan(x) || std::isnan(y)) {
+        if (isnan(x) || isnan(y)) {
             upper = NAN;
             lower = NAN;
             return;
         }
         // XXX This canonicalization convention for INFs is experimental
         //     and subject to change.
-        bool xinf = std::isinf(x);
-        bool yinf = std::isinf(y);
+        bool xinf = isinf(x);
+        bool yinf = isinf(y);
         if (xinf && yinf) {
             if (x != y) {
                 // x and y are INFs with opposite signs.  Since the numerical
@@ -139,7 +155,7 @@ public:
     constexpr
     DoubleDouble(double upper) : upper(upper)
     {
-        if (std::isnan(upper)) {
+        if (isnan(upper)) {
             lower = NAN;
         }
     }
@@ -598,10 +614,10 @@ inline DoubleDouble DoubleDouble::log() const
 //
 inline DoubleDouble DoubleDouble::log1p() const
 {
-    // if ((*this).abs() < 1e-5) {
-    //     // Taylor polynomial:
-    //     return (*this)*(1.0 + (*this)*(-0.5 + (*this)*(1.0/DoubleDouble(3.0) + (*this)*(-0.25 + (*this)*(1.0/DoubleDouble(5.0) - (*this)/6.0)))));
-    // }
+    if ((*this).abs() < 1e-5) {
+        // Taylor polynomial:
+        return (*this)*(1.0 + (*this)*(-0.5 + (*this)*(1.0/DoubleDouble(3.0) + (*this)*(-0.25 + (*this)*(1.0/DoubleDouble(5.0) - (*this)/6.0)))));
+    }
     if ((*this).abs() < 0.5) {
         DoubleDouble guess = std::log1p(this->upper);
         // log(x+1) = y
@@ -723,7 +739,7 @@ inline DoubleDouble DoubleDouble::expm1() const
 
 inline DoubleDouble hypot(const DoubleDouble& x, const DoubleDouble &y)
 {
-    if (std::isinf(x.upper) || std::isinf(y.upper)) {
+    if (isinf(x.upper) || isinf(y.upper)) {
         return dd_inf;
     }
     auto absx = x.abs();
@@ -785,12 +801,15 @@ inline DoubleDouble ceil(DoubleDouble const& arg) {
 }
 inline bool isnan(DoubleDouble const& arg)
 {
-    return std::isnan(arg.upper) || std::isnan(arg.lower);
+    return isnan(arg.upper) || isnan(arg.lower);
+}
+inline DoubleDouble sqrt(DoubleDouble const& arg) {
+    return arg.sqrt();
 }
 inline DoubleDouble pow(DoubleDouble const &base, DoubleDouble const &expo) {
     bool expo_negative = std::signbit(expo.upper);
     bool expo_nonzero = expo.upper != 0 || expo.lower != 0;
-    bool expo_pm_infty = std::isinf(expo.upper);
+    bool expo_pm_infty = isinf(expo.upper);
     bool expo_finite = expo_nonzero && !expo_pm_infty;
     bool expo_integer = expo == floor(expo);
     bool expo_even_integer =
@@ -798,10 +817,10 @@ inline DoubleDouble pow(DoubleDouble const &base, DoubleDouble const &expo) {
     bool expo_odd_integer =
         expo_integer && (static_cast<long long int>(expo.upper) % 2 == 1);
     //bool expo_is_posinf = expo_pm_infty && expo.upper > 0;
-    bool expo_is_neginf = expo_is_neginf && expo.upper < 0;
+    bool expo_is_neginf = expo_pm_infty && expo.upper < 0;
     bool base_negative = std::signbit(base.upper);
     bool base_nonzero = base.upper != 0 || base.lower != 0;
-    bool base_pm_infty = std::isinf(base.upper);
+    bool base_pm_infty = isinf(base.upper);
     bool base_finite = base_nonzero && !base_pm_infty;
     DoubleDouble abs_base = fabs(base);
     bool abs_base_lt1 = abs_base < dd_one;

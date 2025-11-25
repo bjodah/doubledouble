@@ -1,5 +1,5 @@
-CXX = g++
-CXXFLAGS = -std=c++17 -Wall -Werror -I../include
+CXX ?= g++
+CXXFLAGS ?= -std=c++17 -Wall -Werror -I../include
 
 ifeq ($(OS),Windows_NT)
     DETECTED_OS := Windows
@@ -12,7 +12,7 @@ ifeq ($(DETECTED_OS),Darwin)
 endif
 
 test_doubledouble: test_doubledouble.cpp checkit.h
-	$(CXX) $(CXXFLAGS) test_doubledouble.cpp -o test_doubledouble
+	$(CXX) $(CXXFLAGS) test_doubledouble.cpp -o test_doubledouble $(LDFLAGS)
 
 clean:
 	rm -rf test_doubledouble
