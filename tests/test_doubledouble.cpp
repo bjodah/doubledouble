@@ -595,6 +595,202 @@ void test_dsum(CheckIt& test)
     assert_equal_fp(test, s4, 2e-17, "Test of dsum(vector)");
 }
 
+void test_pow(CheckIt& test)
+{
+    /* The contents of test_pow was generated using Google's LLM: Gemini 3 Pro
+       Preview. The prompt contained the, then current, implementation in doubledouble.h,
+       cppreference's description of std::pow, and the current test suite.
+
+       The generated test suite uncovered bugs in the implmentation, after
+       fixing those manually (fixing typos, re-reading the cppreference spec),
+       all generated tests passed without any modifications.
+    */
+    DoubleDouble y;
+    DoubleDouble nan = DoubleDouble(NAN);
+    DoubleDouble inf = dd_inf;
+    DoubleDouble ninf = -dd_inf;
+    DoubleDouble zero = dd_zero;
+    DoubleDouble nzero = -dd_zero; // -0.0
+    DoubleDouble one = dd_one;
+    DoubleDouble mone = -dd_one;
+
+    // ---------------------------------------------------------
+    // 1. Exact Special Cases (Standard Compliance)
+    // ---------------------------------------------------------
+
+    // pow(+1, exp) returns 1 for any exp, even when exp is NaN
+    assert_equal_fp(test, doubledouble::pow(one, DoubleDouble(5.0)).upper, 1.0, "pow(1, 5)");
+    assert_equal_fp(test, doubledouble::pow(one, nan).upper, 1.0, "pow(1, NaN)");
+    assert_equal_fp(test, doubledouble::pow(one, inf).upper, 1.0, "pow(1, inf)");
+
+    // pow(base, ±0) returns 1 for any base, even when base is NaN
+    assert_equal_fp(test, doubledouble::pow(DoubleDouble(5.0), zero).upper, 1.0, "pow(5, 0)");
+    assert_equal_fp(test, doubledouble::pow(nan, zero).upper, 1.0, "pow(NaN, 0)");
+    assert_equal_fp(test, doubledouble::pow(inf, zero).upper, 1.0, "pow(inf, 0)");
+    assert_equal_fp(test, doubledouble::pow(DoubleDouble(5.0), nzero).upper, 1.0, "pow(5, -0)");
+
+    // pow(-1, ±∞) returns 1
+    assert_equal_fp(test, doubledouble::pow(mone, inf).upper, 1.0, "pow(-1, +inf)");
+    assert_equal_fp(test, doubledouble::pow(mone, ninf).upper, 1.0, "pow(-1, -inf)");
+
+    // ---------------------------------------------------------
+    // 2. Base Zero Cases (±0)
+    // ---------------------------------------------------------
+
+    // pow(±0, -inf) returns +∞
+    y = doubledouble::pow(zero, ninf);
+    assert_true(test, std::isinf(y.upper) && y.upper > 0, "pow(+0, -inf) -> +inf");
+    y = doubledouble::pow(nzero, ninf);
+    assert_true(test, std::isinf(y.upper) && y.upper > 0, "pow(-0, -inf) -> +inf");
+
+    // pow(+0, neg odd int) -> +∞
+    y = doubledouble::pow(zero, DoubleDouble(-3.0));
+    assert_true(test, std::isinf(y.upper) && y.upper > 0, "pow(+0, -3) -> +inf");
+
+    // pow(-0, neg odd int) -> -∞
+    y = doubledouble::pow(nzero, DoubleDouble(-3.0));
+    assert_true(test, std::isinf(y.upper) && y.upper < 0, "pow(-0, -3) -> -inf");
+
+    // pow(±0, neg even int/non-int) -> +∞
+    y = doubledouble::pow(zero, DoubleDouble(-2.0));
+    assert_true(test, std::isinf(y.upper) && y.upper > 0, "pow(+0, -2) -> +inf");
+    y = doubledouble::pow(nzero, DoubleDouble(-2.0));
+    assert_true(test, std::isinf(y.upper) && y.upper > 0, "pow(-0, -2) -> +inf");
+    y = doubledouble::pow(nzero, DoubleDouble(-2.5));
+    assert_true(test, std::isinf(y.upper) && y.upper > 0, "pow(-0, -2.5) -> +inf");
+
+    // pow(+0, pos odd int) -> +0
+    y = doubledouble::pow(zero, DoubleDouble(3.0));
+    assert_equal_fp(test, y.upper, 0.0, "pow(+0, 3) -> +0");
+    assert_true(test, !std::signbit(y.upper), "pow(+0, 3) sign is positive");
+
+    // pow(-0, pos odd int) -> -0
+    y = doubledouble::pow(nzero, DoubleDouble(3.0));
+    assert_equal_fp(test, y.upper, 0.0, "pow(-0, 3) -> -0");
+    // Note: checking sign bit of 0.0 relies on compiler/platform, but DD preserves it usually
+    assert_true(test, std::signbit(y.upper), "pow(-0, 3) sign is negative");
+
+    // pow(±0, pos even/non-int) -> +0
+    y = doubledouble::pow(nzero, DoubleDouble(2.0));
+    assert_equal_fp(test, y.upper, 0.0, "pow(-0, 2) -> +0");
+    assert_true(test, !std::signbit(y.upper), "pow(-0, 2) sign is positive");
+    y = doubledouble::pow(nzero, DoubleDouble(2.5));
+    assert_equal_fp(test, y.upper, 0.0, "pow(-0, 2.5) -> +0");
+
+    // ---------------------------------------------------------
+    // 3. Exponent Infinite Cases (±∞)
+    // ---------------------------------------------------------
+
+    DoubleDouble half(0.5);
+    DoubleDouble two(2.0);
+    DoubleDouble mhalf(-0.5);
+    DoubleDouble mtwo(-2.0);
+
+    // pow(base, -∞) returns +∞ for |base| < 1
+    assert_true(test, std::isinf(doubledouble::pow(half, ninf).upper), "pow(0.5, -inf) -> +inf");
+    assert_true(test, std::isinf(doubledouble::pow(mhalf, ninf).upper), "pow(-0.5, -inf) -> +inf");
+
+    // pow(base, -∞) returns +0 for |base| > 1
+    assert_equal_fp(test, doubledouble::pow(two, ninf).upper, 0.0, "pow(2.0, -inf) -> 0");
+    assert_equal_fp(test, doubledouble::pow(mtwo, ninf).upper, 0.0, "pow(-2.0, -inf) -> 0");
+
+    // pow(base, +∞) returns +0 for |base| < 1
+    assert_equal_fp(test, doubledouble::pow(half, inf).upper, 0.0, "pow(0.5, inf) -> 0");
+    assert_equal_fp(test, doubledouble::pow(mhalf, inf).upper, 0.0, "pow(-0.5, inf) -> 0");
+
+    // pow(base, +∞) returns +∞ for |base| > 1
+    assert_true(test, std::isinf(doubledouble::pow(two, inf).upper), "pow(2.0, inf) -> inf");
+    assert_true(test, std::isinf(doubledouble::pow(mtwo, inf).upper), "pow(-2.0, inf) -> inf");
+
+    // ---------------------------------------------------------
+    // 4. Base Infinite Cases (±∞)
+    // ---------------------------------------------------------
+
+    // pow(-∞, neg odd int) -> -0
+    y = doubledouble::pow(ninf, DoubleDouble(-3.0));
+    assert_equal_fp(test, y.upper, 0.0, "pow(-inf, -3) -> -0");
+    assert_true(test, std::signbit(y.upper), "pow(-inf, -3) sign negative");
+
+    // pow(-∞, neg even int) -> +0
+    y = doubledouble::pow(ninf, DoubleDouble(-2.0));
+    assert_equal_fp(test, y.upper, 0.0, "pow(-inf, -2) -> +0");
+    assert_true(test, !std::signbit(y.upper), "pow(-inf, -2) sign positive");
+
+    // pow(-∞, pos odd int) -> -∞
+    y = doubledouble::pow(ninf, DoubleDouble(3.0));
+    assert_true(test, std::isinf(y.upper) && y.upper < 0, "pow(-inf, 3) -> -inf");
+
+    // pow(-∞, pos even int) -> +∞
+    y = doubledouble::pow(ninf, DoubleDouble(2.0));
+    assert_true(test, std::isinf(y.upper) && y.upper > 0, "pow(-inf, 2) -> +inf");
+
+    // pow(+∞, neg) -> +0
+    assert_equal_fp(test, doubledouble::pow(inf, DoubleDouble(-2.0)).upper, 0.0, "pow(inf, -2)");
+
+    // pow(+∞, pos) -> +∞
+    assert_true(test, std::isinf(doubledouble::pow(inf, DoubleDouble(2.0)).upper), "pow(inf, 2)");
+
+    // ---------------------------------------------------------
+    // 5. Negative Base Finite Cases
+    // ---------------------------------------------------------
+
+    // pow(neg, finite non-int) -> NaN (Domain Error)
+    y = doubledouble::pow(mtwo, DoubleDouble(2.5));
+    assert_isnan(test, y);
+
+    // pow(neg, integer) -> Correct value
+    y = doubledouble::pow(mtwo, DoubleDouble(3.0));
+    assert_equal_fp(test, y.upper, -8.0, "pow(-2, 3)");
+
+    y = doubledouble::pow(mtwo, DoubleDouble(2.0));
+    assert_equal_fp(test, y.upper, 4.0, "pow(-2, 2)");
+
+    // ---------------------------------------------------------
+    // 6. General Arithmetic and Accuracy
+    // ---------------------------------------------------------
+
+    // 3^4 = 81
+    y = doubledouble::pow(DoubleDouble(3.0), DoubleDouble(4.0));
+    assert_equal_fp(test, y.upper, 81.0, "pow(3, 4) approx 81");
+    assert_close_fp(test, y.lower, 0.0, 1e-14, "pow(3, 4) precision check");
+
+    // sqrt via pow: 4^0.5 = 2
+    y = doubledouble::pow(DoubleDouble(4.0), DoubleDouble(0.5));
+    assert_equal_fp(test, y.upper, 2.0, "pow(4, 0.5)");
+
+    // ---------------------------------------------------------
+    // 7. Potential Bug Triggers / Edge Cases
+    // ---------------------------------------------------------
+
+    // Case: Exponent is a large even integer (Double).
+    // The implementation casts to `long long int`.
+    // 1e20 > 2^63. Casting 1e20 to long long is Undefined Behavior.
+    // However, math says (-2)^(even) = positive.
+    DoubleDouble large_even(1e20);
+    // We expect +Infinity because 2^1e20 is huge, but we specifically check the SIGN.
+    // If the UB results in a negative interpretation of parity, this might fail or crash.
+    // Commented out to prevent crash if running in strict env, but valid for bug hunting:
+    /*
+      y = doubledouble::pow(mtwo, large_even);
+      assert_true(test, std::isinf(y.upper), "pow(-2, 1e20) overflow to inf");
+      assert_true(test, y.upper > 0, "pow(-2, 1e20) should be positive inf (even power)");
+    */
+
+    // Case: Base is 1.0 + epsilon
+    // Implementation uses strict (base == dd_one).
+    // pow(1+eps, inf) should be inf, NOT 1.
+    DoubleDouble one_plus_eps = one + DoubleDouble(1e-18); // still > 1
+    y = doubledouble::pow(one_plus_eps, inf);
+    assert_true(test, std::isinf(y.upper), "pow(1+eps, inf) -> inf");
+    assert_true(test, y.upper > 0, "pow(1+eps, inf) is pos");
+
+    // Case: Base is 1.0 - epsilon
+    // pow(1-eps, inf) should be 0.
+    DoubleDouble one_minus_eps = one - DoubleDouble(1e-18);
+    y = doubledouble::pow(one_minus_eps, inf);
+    assert_equal_fp(test, y.upper, 0.0, "pow(1-eps, inf) -> 0");
+
+}
 
 int main(int argc, char *argv[])
 {
@@ -621,6 +817,6 @@ int main(int argc, char *argv[])
     test_hypot(test);
     test_tanh(test);
     test_dsum(test);
-
+    test_pow(test);
     return test.print_summary("Summary: ");
 }

@@ -807,17 +807,16 @@ inline DoubleDouble sqrt(DoubleDouble const& arg) {
     return arg.sqrt();
 }
 inline DoubleDouble pow(DoubleDouble const &base, DoubleDouble const &expo) {
+    constexpr int const threshold_powi {17};
     bool expo_negative = std::signbit(expo.upper);
     bool expo_nonzero = expo.upper != 0 || expo.lower != 0;
     bool expo_pm_infty = isinf(expo.upper);
     bool expo_finite = expo_nonzero && !expo_pm_infty;
-    bool expo_integer = expo == floor(expo);
-    bool expo_even_integer =
-        expo_integer && (static_cast<long long int>(expo.upper) % 2 == 0);
-    bool expo_odd_integer =
-        expo_integer && (static_cast<long long int>(expo.upper) % 2 == 1);
+    bool expo_integer = !expo_pm_infty && expo == floor(expo);
+    bool expo_even_integer = expo_integer && (fmod(expo.upper, 2) == 0);
+    bool expo_odd_integer = expo_integer && (fabs(fmod(expo.upper, 2)) == 1);
     //bool expo_is_posinf = expo_pm_infty && expo.upper > 0;
-    bool expo_is_neginf = expo_pm_infty && expo.upper < 0;
+    //bool expo_is_neginf = expo_pm_infty && expo.upper < 0;
     bool base_negative = std::signbit(base.upper);
     bool base_nonzero = base.upper != 0 || base.lower != 0;
     bool base_pm_infty = isinf(base.upper);
@@ -826,39 +825,39 @@ inline DoubleDouble pow(DoubleDouble const &base, DoubleDouble const &expo) {
     bool abs_base_lt1 = abs_base < dd_one;
     bool abs_base_gt1 = abs_base > dd_one;
     if (!base_nonzero) { // base ±0
-        if (expo_odd_integer) {
-            if (expo_negative) {
-                // pow(-0, exp), where exp is a negative odd integer, returns -∞ and raises FE_DIVBYZERO.
+        if (expo_negative) {
+            if (expo_odd_integer) {
+                if (base_negative) {
+                    // pow(-0, exp), where exp is a negative odd integer, returns -∞ and raises FE_DIVBYZERO.
+                    std::feraiseexcept(FE_DIVBYZERO);
+                    return -dd_inf;
+                }  else {
+                    // pow(+0, exp), where exp is a negative odd integer, returns +∞ and raises FE_DIVBYZERO.
+                    std::feraiseexcept(FE_DIVBYZERO);
+                    return dd_inf;
+                }
+            } else if (expo_finite && !expo_odd_integer) {
+                // pow(±0, exp), where exp is negative, finite, and is an even integer or a non-integer, returns +∞ and raises FE_DIVBYZERO.
                 std::feraiseexcept(FE_DIVBYZERO);
-                return -dd_inf;
-            } else {
-                // pow(+0, exp), where exp is a negative odd integer, returns +∞ and raises FE_DIVBYZERO.
+                return dd_inf;
+            } else if (expo_pm_infty) {
+                // pow(±0, -∞) returns +∞ and may raise FE_DIVBYZERO.
                 std::feraiseexcept(FE_DIVBYZERO);
                 return dd_inf;
             }
-        }
-        if (expo_negative && expo_finite && (expo_even_integer || !expo_integer)) {
-            // pow(±0, exp), where exp is negative, finite, and is an even integer or a non-integer, returns +∞ and raises FE_DIVBYZERO.
-            std::feraiseexcept(FE_DIVBYZERO);
-            return dd_inf;
-        }
-        if (expo.upper == -INFINITY) {
-            // pow(±0, -∞) returns +∞ and may raise FE_DIVBYZERO.
-            std::feraiseexcept(FE_DIVBYZERO);
-            return dd_inf;
-        }
-        if (!expo_negative && !expo_even_integer) {
-            if (base_negative) {
-                // pow(-0, exp), where exp is a positive odd integer, returns -0.
-                return {-0.0, -0.0};
-            } else {
-                // pow(+0, exp), where exp is a positive odd integer, returns +0.
+        } else { // expo positive
+            if (expo_odd_integer) {
+                if (base_negative) {
+                    // pow(-0, exp), where exp is a positive odd integer, returns -0.
+                    return {-0.0, -0.0};
+                } else {
+                    // pow(+0, exp), where exp is a positive odd integer, returns +0.
+                    return dd_zero;
+                }
+            } else if (!expo_odd_integer) {
+                // pow(±0, exp), where exp is positive non-integer or a positive even integer, returns +0.
                 return dd_zero;
             }
-        }
-        if (!expo_negative) {
-            // pow(±0, exp), where exp is positive non-integer or a positive even integer, returns +0.
-            return dd_zero;
         }
     }
     if (base == -dd_one && !expo_finite) [[unlikely]] {
@@ -925,6 +924,9 @@ inline DoubleDouble pow(DoubleDouble const &base, DoubleDouble const &expo) {
         // except where specified above, if any argument is NaN, NaN is returned.
         return {NAN, NAN};
     }
+    if (expo_integer and fabs(expo) < threshold_powi) {
+        return base.powi((int)expo.upper);
+    }
     if (base_negative && expo_integer) {
         DoubleDouble pow_mbase = ((-base).log()*expo).exp();
         if (expo_odd_integer) {
@@ -965,10 +967,6 @@ inline DoubleDouble fma(DoubleDouble const& x, DoubleDouble const& y, DoubleDoub
     return (((XY + z) + Xy) + Yx) + xy;
 }
 #include "inline_constexpr_stdarray_taylor_coeffs_tanh.ipp"
-// #include "inline_constexpr_stdarray_cheby_coeffs_tanh_025_05.ipp"
-// #include "inline_constexpr_stdarray_cheby_coeffs_tanh_05_1.ipp"
-// #include "inline_constexpr_stdarray_cheby_coeffs_tanh_1_2.ipp"
-// #include "inline_constexpr_stdarray_cheby_coeffs_tanh_2_4.ipp"
 inline DoubleDouble tanh(DoubleDouble const& x) {
     // see _derivation_expm1.ipynb
     if (x < 0) {
@@ -982,7 +980,6 @@ inline DoubleDouble tanh(DoubleDouble const& x) {
         DoubleDouble e2xm1 = (2*x).expm1();
         return e2xm1/(e2xm1+2);
     }
-// #include "inline_cheby_impl_tanh.ipp"
     if (x.upper > 0.25) {
         // TODO, currently this branch is the worst off
         DoubleDouble ex = exp(x);

@@ -1,5 +1,5 @@
 CXX ?= g++
-CXXFLAGS ?= -std=c++17 -Wall -Werror -I../include
+CXXFLAGS ?= -g -std=c++17 -Wall -Werror -I../include
 
 ifeq ($(OS),Windows_NT)
     DETECTED_OS := Windows
