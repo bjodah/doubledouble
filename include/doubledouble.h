@@ -668,6 +668,11 @@ inline bool signbit(DoubleDouble const& x)
     return std::signbit(x.upper) || ((x.upper == 0.0) && std::signbit(x.lower));
 }
 
+inline DoubleDouble copysign(DoubleDouble const& x, DoubleDouble const& y)
+{
+    return signbit(x) == signbit(y) ? x : -x;
+}
+
 // Defined further down (next to the other generic-code helpers); forward-declared here
 // so the trig/hyperbolic functions below can use it.
 inline bool isnan(DoubleDouble const& arg);
@@ -1317,14 +1322,38 @@ inline DoubleDouble expm1(DoubleDouble const& arg)
     return arg.expm1();
 }
 inline DoubleDouble floor(DoubleDouble const& arg) {
-    return {std::floor(arg.upper), 0.0}; // naive implementation
+    double upper_floor = std::floor(arg.upper);
+    if (upper_floor == arg.upper) {
+        return {upper_floor, std::floor(arg.lower)};
+    }
+    return {upper_floor, 0.0};
 }
 inline DoubleDouble ceil(DoubleDouble const& arg) {
-    return {std::ceil(arg.upper), 0.0}; // naive implementation
+    double upper_ceil = std::ceil(arg.upper);
+    if (upper_ceil == arg.upper) {
+        return {upper_ceil, std::ceil(arg.lower)};
+    }
+    return {upper_ceil, 0.0};
+}
+inline DoubleDouble round(DoubleDouble const& arg) {
+    if (isnan(arg)) {
+        return dd_nan();
+    }
+    if (isinf(arg.upper)) {
+        return arg;
+    }
+    if (signbit(arg)) {
+        return -round(-arg);
+    }
+    return floor(arg + 0.5);
 }
 inline bool isnan(DoubleDouble const& arg)
 {
     return isnan(arg.upper) || isnan(arg.lower);
+}
+inline bool isfinite(DoubleDouble const& arg)
+{
+    return std::isfinite(arg.upper) && std::isfinite(arg.lower);
 }
 inline DoubleDouble sqrt(DoubleDouble const& arg) {
     return arg.sqrt();

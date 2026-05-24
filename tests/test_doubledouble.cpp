@@ -215,6 +215,21 @@ void test_constructor(CheckIt& test)
     assert_isnan(test, dd3);
 }
 
+void test_casts(CheckIt& test)
+{
+    auto x = DoubleDouble(13.5, 1e-20);
+    assert_equal_fp(test, static_cast<double>(x), 13.5, "static_cast<double>(13.5, 1e-20)");
+
+    auto tiny_increment = DoubleDouble(1.0, 0x1p-54);
+    assert_equal_fp(test, static_cast<double>(tiny_increment), 1.0,
+                    "static_cast<double> returns upper part");
+
+    assert_equal_integer(test, static_cast<int>(DoubleDouble(42.75)), 42,
+                         "static_cast<int>(42.75)");
+    assert_equal_integer(test, static_cast<int>(DoubleDouble(-42.75)), -42,
+                         "static_cast<int>(-42.75)");
+}
+
 void test_add(CheckIt& test)
 {
     auto z = DoubleDouble(1.0, 1e-18) + DoubleDouble(1.5, 5e-19);
@@ -456,6 +471,145 @@ void test_abs(CheckIt& test)
 
     a = DoubleDouble(NAN).abs();
     assert_isnan(test, a);
+}
+
+void test_signbit(CheckIt& test)
+{
+    assert_false(test, signbit(DoubleDouble(3.0, -1e-20)), "signbit(+3)");
+    assert_true(test, signbit(DoubleDouble(-3.0, 1e-20)), "signbit(-3)");
+
+    assert_false(test, signbit(dd_zero), "signbit(+0)");
+    assert_true(test, signbit(-dd_zero), "signbit(-0)");
+
+    DoubleDouble lower_negative_zero;
+    lower_negative_zero.upper = 0.0;
+    lower_negative_zero.lower = -0.0;
+    assert_true(test, signbit(lower_negative_zero), "signbit(upper +0, lower -0)");
+
+    assert_false(test, signbit(dd_inf), "signbit(+inf)");
+    assert_true(test, signbit(-dd_inf), "signbit(-inf)");
+}
+
+void test_copysign(CheckIt& test)
+{
+    auto x = copysign(DoubleDouble(2.0, 1e-19), DoubleDouble(-1.0));
+    assert_equal_fp(test, x.upper, -2.0, "copysign(+2, -1) (upper)");
+    assert_equal_fp(test, x.lower, -1e-19, "copysign(+2, -1) (lower)");
+    assert_true(test, signbit(x), "copysign(+2, -1) sign");
+
+    auto y = copysign(DoubleDouble(-2.0, -1e-19), DoubleDouble(1.0));
+    assert_equal_fp(test, y.upper, 2.0, "copysign(-2, +1) (upper)");
+    assert_equal_fp(test, y.lower, 1e-19, "copysign(-2, +1) (lower)");
+    assert_false(test, signbit(y), "copysign(-2, +1) sign");
+
+    auto z = copysign(dd_zero, -dd_one);
+    assert_equal_fp(test, z.upper, -0.0, "copysign(+0, -1) (upper)");
+    assert_equal_fp(test, z.lower, 0.0, "copysign(+0, -1) (lower)");
+    assert_true(test, signbit(z), "copysign(+0, -1) sign");
+
+    auto w = copysign(-dd_zero, dd_one);
+    assert_equal_fp(test, w.upper, 0.0, "copysign(-0, +1) (upper)");
+    assert_equal_fp(test, w.lower, 0.0, "copysign(-0, +1) (lower)");
+    assert_false(test, signbit(w), "copysign(-0, +1) sign");
+
+    auto u = copysign(dd_inf, -dd_one);
+    assert_true(test, std::isinf(u.upper) && u.upper < 0.0, "copysign(+inf, -1) (upper)");
+    assert_equal_fp(test, u.lower, 0.0, "copysign(+inf, -1) (lower)");
+}
+
+void test_isfinite(CheckIt& test)
+{
+    using std::isfinite;
+
+    assert_true(test, isfinite(DoubleDouble(3.0, 1e-20)), "isfinite(3 + 1e-20)");
+    assert_true(test, isfinite(dd_zero), "isfinite(+0)");
+    assert_true(test, isfinite(-dd_zero), "isfinite(-0)");
+
+    assert_false(test, isfinite(dd_inf), "isfinite(+inf)");
+    assert_false(test, isfinite(-dd_inf), "isfinite(-inf)");
+    assert_false(test, isfinite(DoubleDouble(NAN)), "isfinite(NaN)");
+
+    DoubleDouble lower_inf;
+    lower_inf.upper = 1.0;
+    lower_inf.lower = INFINITY;
+    assert_false(test, isfinite(lower_inf), "isfinite(finite upper, infinite lower)");
+
+    DoubleDouble lower_nan;
+    lower_nan.upper = 1.0;
+    lower_nan.lower = NAN;
+    assert_false(test, isfinite(lower_nan), "isfinite(finite upper, NaN lower)");
+}
+
+void test_floor_ceil_round(CheckIt& test)
+{
+    auto floor_x = floor(DoubleDouble(3.75, 1e-18));
+    assert_equal_fp(test, floor_x.upper, 3.0, "floor(3.75) (upper)");
+    assert_equal_fp(test, floor_x.lower, 0.0, "floor(3.75) (lower)");
+
+    auto ceil_x = ceil(DoubleDouble(3.75, 1e-18));
+    assert_equal_fp(test, ceil_x.upper, 4.0, "ceil(3.75) (upper)");
+    assert_equal_fp(test, ceil_x.lower, 0.0, "ceil(3.75) (lower)");
+
+    auto below_one = DoubleDouble(1.0, -0x1p-54);
+    floor_x = floor(below_one);
+    assert_equal_fp(test, floor_x.upper, 0.0, "floor(1 - 2^-54) (upper)");
+    assert_equal_fp(test, floor_x.lower, 0.0, "floor(1 - 2^-54) (lower)");
+    ceil_x = ceil(below_one);
+    assert_equal_fp(test, ceil_x.upper, 1.0, "ceil(1 - 2^-54) (upper)");
+    assert_equal_fp(test, ceil_x.lower, 0.0, "ceil(1 - 2^-54) (lower)");
+
+    auto above_one = DoubleDouble(1.0, 0x1p-54);
+    floor_x = floor(above_one);
+    assert_equal_fp(test, floor_x.upper, 1.0, "floor(1 + 2^-54) (upper)");
+    assert_equal_fp(test, floor_x.lower, 0.0, "floor(1 + 2^-54) (lower)");
+    ceil_x = ceil(above_one);
+    assert_equal_fp(test, ceil_x.upper, 2.0, "ceil(1 + 2^-54) (upper)");
+    assert_equal_fp(test, ceil_x.lower, 0.0, "ceil(1 + 2^-54) (lower)");
+
+    floor_x = floor(DoubleDouble(-1.0, -0x1p-54));
+    assert_equal_fp(test, floor_x.upper, -2.0, "floor(-1 - 2^-54) (upper)");
+    assert_equal_fp(test, floor_x.lower, 0.0, "floor(-1 - 2^-54) (lower)");
+    ceil_x = ceil(DoubleDouble(-1.0, 0x1p-54));
+    assert_equal_fp(test, ceil_x.upper, 0.0, "ceil(-1 + 2^-54) (upper)");
+    assert_equal_fp(test, ceil_x.lower, 0.0, "ceil(-1 + 2^-54) (lower)");
+
+    auto round_x = round(DoubleDouble(2.5));
+    assert_equal_fp(test, round_x.upper, 3.0, "round(2.5) (upper)");
+    assert_equal_fp(test, round_x.lower, 0.0, "round(2.5) (lower)");
+
+    round_x = round(DoubleDouble(2.5, -0x1p-54));
+    assert_equal_fp(test, round_x.upper, 2.0, "round(2.5 - 2^-54) (upper)");
+    assert_equal_fp(test, round_x.lower, 0.0, "round(2.5 - 2^-54) (lower)");
+
+    round_x = round(DoubleDouble(-2.5));
+    assert_equal_fp(test, round_x.upper, -3.0, "round(-2.5) (upper)");
+    assert_equal_fp(test, round_x.lower, 0.0, "round(-2.5) (lower)");
+
+    round_x = round(DoubleDouble(-2.5, 0x1p-54));
+    assert_equal_fp(test, round_x.upper, -2.0, "round(-2.5 + 2^-54) (upper)");
+    assert_equal_fp(test, round_x.lower, 0.0, "round(-2.5 + 2^-54) (lower)");
+
+    round_x = round(-dd_zero);
+    assert_equal_fp(test, round_x.upper, -0.0, "round(-0) (upper)");
+    assert_equal_fp(test, round_x.lower, -0.0, "round(-0) (lower)");
+    assert_true(test, signbit(round_x), "round(-0) sign");
+
+    floor_x = floor(dd_inf);
+    assert_true(test, std::isinf(floor_x.upper) && floor_x.upper > 0.0, "floor(+inf) (upper)");
+    assert_equal_fp(test, floor_x.lower, 0.0, "floor(+inf) (lower)");
+    ceil_x = ceil(-dd_inf);
+    assert_true(test, std::isinf(ceil_x.upper) && ceil_x.upper < 0.0, "ceil(-inf) (upper)");
+    assert_equal_fp(test, ceil_x.lower, 0.0, "ceil(-inf) (lower)");
+    round_x = round(dd_inf);
+    assert_true(test, std::isinf(round_x.upper) && round_x.upper > 0.0, "round(+inf) (upper)");
+    assert_equal_fp(test, round_x.lower, 0.0, "round(+inf) (lower)");
+    round_x = round(-dd_inf);
+    assert_true(test, std::isinf(round_x.upper) && round_x.upper < 0.0, "round(-inf) (upper)");
+    assert_equal_fp(test, round_x.lower, 0.0, "round(-inf) (lower)");
+
+    assert_isnan(test, floor(DoubleDouble(NAN)));
+    assert_isnan(test, ceil(DoubleDouble(NAN)));
+    assert_isnan(test, round(DoubleDouble(NAN)));
 }
 
 void test_powi(CheckIt& test)
@@ -1324,6 +1478,7 @@ int main(int argc, char *argv[])
     auto test = CheckIt(std::cerr);
 
     test_constructor(test);
+    test_casts(test);
     test_add(test);
     test_inplace_add(test);
     test_subtract(test);
@@ -1335,6 +1490,10 @@ int main(int argc, char *argv[])
     test_expressions(test);
     test_comparisons(test);
     test_abs(test);
+    test_signbit(test);
+    test_copysign(test);
+    test_isfinite(test);
+    test_floor_ceil_round(test);
     test_powi(test);
     test_sqrt(test);
     test_log(test);
