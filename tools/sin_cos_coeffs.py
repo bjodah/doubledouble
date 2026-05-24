@@ -11,7 +11,7 @@ def split_to_doubledouble(x):
 
 
 def print_doubledouble_array(name, values):
-    print(f"static const std::array<DoubleDouble, {len(values)}> {name}{{{{")
+    print(f"inline constexpr std::array<DoubleDouble, {len(values)}> {name}{{{{")
     for k, value in enumerate(values, start=1):
         upper, lower = split_to_doubledouble(value)
         comma = "," if k < len(values) else ""
@@ -34,7 +34,7 @@ def print_table_group(denom, nterms, suffix):
     print_doubledouble_array(f"cos_table_{suffix}", cos_values(denom, nterms))
 
 
-print("// qd-compatible check tables. These should reproduce dd_real.cpp's pi/16 table.")
+print("// qd-compatible check tables.")
 print_table_group(16, 4, "pi_16")
 print()
 print("// Proposed implementation tables for doubledouble trig range reduction.")

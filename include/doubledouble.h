@@ -1,6 +1,7 @@
 //
 // A double-double class.
 // Copyright © 2022 Warren Weckesser
+// Copyright © 2026 Björn Dahlgren
 //
 // MIT license:
 //
@@ -231,9 +232,9 @@ inline const DoubleDouble dd_e{2.7182818284590452, 1.44564689172925013472e-16};
 // ln(2)
 inline const DoubleDouble dd_ln2{0.6931471805599453, 2.3190468138462996e-17};
 // pi
-inline const DoubleDouble dd_pi{3.1415926535897931, 1.2246467991473532e-16};
+inline const DoubleDouble dd_pi{3.1415926535897932, 1.22464679914735317636e-16};
 // pi/2
-inline const DoubleDouble dd_pi_2{1.5707963267948966, 6.1232339957367660e-17};
+inline const DoubleDouble dd_pi_2{1.5707963267948966, 6.123233995736766e-17};
 // 2*pi
 inline const DoubleDouble dd_2pi{6.2831853071795862, 2.4492935982947064e-16};
 // pi/4
@@ -620,19 +621,6 @@ inline DoubleDouble DoubleDouble::log() const
     return r;
 }
 
-// inline DoubleDouble DoubleDouble::log1p() const
-// {
-//     DoubleDouble u = *this + 1.0;
-//     if (u == 0.0) {
-//         return *this;
-//     }
-//     return u.log()*(*this)/(u - 1.0);
-// }
-
-//
-// This needs a second look.  See the various relative tolerances
-// in the unit tests for cases where I think it should do better.
-//
 inline DoubleDouble DoubleDouble::log1p() const
 {
     if ((*this).abs() < 1e-5) {
@@ -667,19 +655,9 @@ inline DoubleDouble DoubleDouble::abs() const
     }
 }
 
-inline DoubleDouble sqr(DoubleDouble const& x)
-{
-    return x*x;
-}
-
 inline bool is_zero(DoubleDouble const& x)
 {
     return x.upper == 0.0 && x.lower == 0.0;
-}
-
-inline bool is_one(DoubleDouble const& x)
-{
-    return x.upper == 1.0 && x.lower == 0.0;
 }
 
 inline bool signbit(DoubleDouble const& x)
@@ -687,19 +665,13 @@ inline bool signbit(DoubleDouble const& x)
     return std::signbit(x.upper) || ((x.upper == 0.0) && std::signbit(x.lower));
 }
 
-inline bool isnan_dd(DoubleDouble const& x)
-{
-    return isnan(x.upper) || isnan(x.lower);
-}
+// Defined further down (next to the other generic-code helpers); forward-declared here
+// so the trig/hyperbolic functions below can use it.
+inline bool isnan(DoubleDouble const& arg);
 
 inline DoubleDouble dd_nan()
 {
     return DoubleDouble(NAN, NAN);
-}
-
-inline double nearest_integer_as_double(DoubleDouble const& x)
-{
-    return std::floor(x.upper + 0.5);
 }
 
 inline DoubleDouble hypot(const DoubleDouble& x, const DoubleDouble& y);
@@ -829,21 +801,111 @@ inline void sincos_taylor(DoubleDouble const& x, DoubleDouble& s, DoubleDouble& 
     c = cos_taylor(x);
 }
 
+// 2/pi as base-2^24 digits: 2/pi = sum_i two_over_pi_24[i] * 2^(-24*(i+1)).
+// Enough digits to reduce any finite double-double (max exponent ~1024) to full
+// double-double precision (Payne-Hanek).
+inline constexpr int32_t two_over_pi_24[] = {
+    0xA2F983, 0x6E4E44, 0x1529FC, 0x2757D1, 0xF534DD, 0xC0DB62, 0x95993C, 0x439041,
+    0xFE5163, 0xABDEBB, 0xC561B7, 0x246E3A, 0x424DD2, 0xE00649, 0x2EEA09, 0xD1921C,
+    0xFE1DEB, 0x1CB129, 0xA73EE8, 0x8235F5, 0x2EBB44, 0x84E99C, 0x7026B4, 0x5F7E41,
+    0x3991D6, 0x398353, 0x39F49C, 0x845F8B, 0xBDF928, 0x3B1FF8, 0x97FFDE, 0x05980F,
+    0xEF2F11, 0x8B5A0A, 0x6D1F6D, 0x367ECF, 0x27CB09, 0xB74F46, 0x3F669E, 0x5FEA2D,
+    0x7527BA, 0xC7EBE5, 0xF17B3D, 0x0739F7, 0x8A5292, 0xEA6BFB, 0x5FB11F, 0x8D5D08,
+    0x560330, 0x46FC7B, 0x6BABF0, 0xCFBC20, 0x9AF436, 0x1DA9E3, 0x91615E, 0xE61B08,
+    0x659985, 0x5F14A0, 0x68408D, 0xFFD880, 0x4D7327, 0x310606, 0x1556CA, 0x73A8C9,
+    0x60E27B, 0xC08C6B,
+};
+
+// Payne-Hanek reduction of a (assumed finite, nonzero) modulo pi/2.
+// Sets q in {0,1,2,3} and w in [-pi/4, pi/4] such that a == q*(pi/2) + w (mod 2*pi).
+// Accurate to full double-double precision for all finite |a| (verified vs mpmath
+// from O(1) up to 1e300). The product a*(2/pi) is formed in 24-bit integer pieces and
+// accumulated modulo 8 in double-double, so no precision is lost to the huge integer part.
+inline void payne_hanek_pi2(DoubleDouble const& a, int& q, DoubleDouble& w)
+{
+    const DoubleDouble aa = a.abs();
+    const int n_digits = static_cast<int>(sizeof(two_over_pi_24)/sizeof(two_over_pi_24[0]));
+
+    // acc accumulates (|a| * 2/pi) mod 8, kept small so no fraction bits are lost.
+    // |a| = aa.upper + aa.lower exactly, so we reduce each component separately and add.
+    // Each component is a single double, which splits exactly into three 24-bit pieces.
+    DoubleDouble acc = dd_zero;
+    const double comps[2] = {aa.upper, aa.lower};
+    for (const double x : comps) {
+        if (x == 0.0) {
+            continue;
+        }
+        const int ex = std::ilogb(x) - 23;
+        double z = std::scalbn(x, -ex);   // |z| in [2^23, 2^24)
+        double cx[3];
+        for (int c = 0; c < 3; c++) {     // value of x = sum_c cx[c]*2^(ex-24*c), exact
+            const double t = static_cast<double>(static_cast<int>(z));
+            cx[c] = t;
+            z = (z - t) * 16777216.0;     // *2^24, exact
+        }
+        for (int c = 0; c < 3; c++) {
+            if (cx[c] == 0.0) {
+                continue;
+            }
+            for (int jj = 0; jj < n_digits; jj++) {
+                const int e = ex - 24*(c + jj + 1);
+                if (e > 2) {
+                    continue;   // pure multiple of 8, irrelevant mod 8
+                }
+                if (e < -150) {
+                    break; // below double-double precision
+                }
+                const double p = cx[c] * static_cast<double>(two_over_pi_24[jj]); // |p| <= 2^48, exact
+                const double term = std::fmod(std::scalbn(p, e), 8.0);            // exact, in (-8, 8)
+                acc = acc + DoubleDouble(term);
+                if (std::fabs(acc.upper) >= 8.0) {
+                    acc = acc - 8.0*std::floor(acc.upper/8.0);
+                }
+            }
+        }
+    }
+    acc = acc - 8.0*std::floor(acc.upper/8.0);   // bring into [0, 8)
+
+    const double n = std::floor(acc.upper + 0.5);
+    w = (acc - n) * dd_pi_2;   // (acc - n) in [-1/2, 1/2]
+    int nn = static_cast<int>(n);
+    if (signbit(a)) {
+        nn = -nn;
+        w = -w;
+    }
+    q = ((nn % 4) + 4) % 4;
+}
+
+// Reduce `a` (finite, nonzero) to t + j*(pi/2) + k*(pi/24) with t in [-pi/48, pi/48],
+// j in [-2, 2], k in [-6, 6] (all handled by sincos_reduced). Always succeeds (returns
+// true); the bool is kept for call-site compatibility.
 inline bool trig_range_reduce(DoubleDouble const& a, int& j, int& k, DoubleDouble& t)
 {
-    const double z = nearest_integer_as_double(a / dd_2pi);
-    const DoubleDouble r = a - dd_2pi*z;
-    j = static_cast<int>(std::floor(r.upper / dd_pi_2.upper + 0.5));
-    if (j < -2 || j > 2) {
-        return false;
+    DoubleDouble w;
+    if (std::fabs(a.upper) <= dd_pi_4.upper) {
+        // Already in [-pi/4, pi/4]: no quadrant reduction needed.
+        j = 0;
+        w = a;
     }
-    t = r - dd_pi_2*static_cast<double>(j);
-    k = static_cast<int>(std::floor(t.upper / dd_pi_24.upper + 0.5));
-    if (std::abs(k) > 6) {
-        return false;
+    else if (std::fabs(a.upper) < dd_2pi.upper) {
+        // |a| < 2*pi: direct reduction. z is in {0, +-1}, so dd_2pi*z is exact and
+        // r = a - dd_2pi*z is an exact subtraction; the reduced angle keeps full
+        // *relative* precision (important e.g. for tan just below pi/2). Payne-Hanek
+        // would only give full *absolute* precision here.
+        const double z = std::floor(a.upper / dd_2pi.upper + 0.5);
+        const DoubleDouble r = a - dd_2pi*z;
+        j = static_cast<int>(std::floor(r.upper / dd_pi_2.upper + 0.5)); // j in {-2,..,2}
+        w = r - dd_pi_2*static_cast<double>(j);
     }
-    t -= dd_pi_24*static_cast<double>(k);
-    return !isnan(t.upper) && !isnan(t.lower);
+    else {
+        // Large |a|: Payne-Hanek, full absolute double-double precision at any magnitude.
+        int q;
+        payne_hanek_pi2(a, q, w);
+        j = (q == 3) ? -1 : q;   // q in {0,1,2,3} -> j in {0,1,2,-1}
+    }
+    k = static_cast<int>(std::floor(w.upper / dd_pi_24.upper + 0.5));
+    t = w - dd_pi_24*static_cast<double>(k);
+    return true;
 }
 
 inline void sincos_reduced(int j, int k, DoubleDouble const& t, DoubleDouble& s, DoubleDouble& c)
@@ -894,7 +956,7 @@ inline void sincos_reduced(int j, int k, DoubleDouble const& t, DoubleDouble& s,
 
 inline void sincos(DoubleDouble const& a, DoubleDouble& s, DoubleDouble& c)
 {
-    if (isnan_dd(a)) {
+    if (isnan(a)) {
         s = dd_nan();
         c = dd_nan();
         return;
@@ -938,7 +1000,7 @@ inline DoubleDouble DoubleDouble::cos() const
 
 inline DoubleDouble DoubleDouble::cosm1() const
 {
-    if (isnan_dd(*this)) {
+    if (isnan(*this)) {
         return dd_nan();
     }
     if (isinf(upper)) {
@@ -996,7 +1058,7 @@ inline DoubleDouble tan(DoubleDouble const& arg)
 
 inline DoubleDouble atan2(DoubleDouble const& y, DoubleDouble const& x)
 {
-    if (isnan_dd(x) || isnan_dd(y)) {
+    if (isnan(x) || isnan(y)) {
         return dd_nan();
     }
 
@@ -1058,7 +1120,7 @@ inline DoubleDouble atan(DoubleDouble const& arg)
 
 inline DoubleDouble DoubleDouble::asin() const
 {
-    if (isnan_dd(*this)) {
+    if (isnan(*this)) {
         return dd_nan();
     }
     if (this->abs() > dd_one) {
@@ -1077,7 +1139,7 @@ inline DoubleDouble DoubleDouble::asin() const
 
 inline DoubleDouble DoubleDouble::acos() const
 {
-    if (isnan_dd(*this)) {
+    if (isnan(*this)) {
         return dd_nan();
     }
     if (this->abs() > dd_one) {
@@ -1426,7 +1488,7 @@ inline DoubleDouble fma(DoubleDouble const& x, DoubleDouble const& y, DoubleDoub
 }
 inline void sincosh(DoubleDouble const& x, DoubleDouble& s, DoubleDouble& c)
 {
-    if (isnan_dd(x)) {
+    if (isnan(x)) {
         s = dd_nan();
         c = dd_nan();
         return;
@@ -1448,6 +1510,8 @@ inline void sincosh(DoubleDouble const& x, DoubleDouble& s, DoubleDouble& c)
     }
     if (x.upper > 40.0) {
         if (x.upper - dd_ln2.upper > LOG_MAX_VALUE) {
+            // TODO: for consistency with exp()/pow(), raise the overflow flag here:
+            // std::feraiseexcept(FE_OVERFLOW);
             s = dd_inf;
             c = dd_inf;
             return;
@@ -1478,7 +1542,7 @@ inline DoubleDouble DoubleDouble::cosh() const
 
 inline DoubleDouble DoubleDouble::tanh() const
 {
-    if (isnan_dd(*this)) {
+    if (isnan(*this)) {
         return dd_nan();
     }
     if (isinf(upper)) {
@@ -1499,8 +1563,7 @@ inline DoubleDouble DoubleDouble::tanh() const
 
 inline DoubleDouble DoubleDouble::asinh() const
 {
-    if (isnan_dd(*this)) {
-        // ...
+    if (isnan(*this)) {
         return dd_nan();
     }
     if (isinf(upper)) {
@@ -1522,7 +1585,7 @@ inline DoubleDouble DoubleDouble::asinh() const
 
 inline DoubleDouble DoubleDouble::acosh() const
 {
-    if (isnan_dd(*this)) {
+    if (isnan(*this)) {
         return dd_nan();
     }
     if (isinf(upper)) {
@@ -1551,7 +1614,7 @@ inline DoubleDouble DoubleDouble::acosh() const
 
 inline DoubleDouble DoubleDouble::atanh() const
 {
-    if (isnan_dd(*this)) {
+    if (isnan(*this)) {
         return dd_nan();
     }
     if (is_zero(*this)) {
