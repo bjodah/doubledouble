@@ -161,6 +161,9 @@ public:
         }
     }
 
+    explicit operator double() const noexcept { return upper; }
+    explicit operator int() const noexcept { return static_cast<int>(upper); }
+
     DoubleDouble operator-() const;
     DoubleDouble operator+(double x) const;
     DoubleDouble operator+(const DoubleDouble& x) const;
