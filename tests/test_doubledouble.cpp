@@ -459,6 +459,42 @@ void test_comparisons(CheckIt& test)
     assert_false(test, DoubleDouble(NAN) >= DoubleDouble(NAN), "NAN >= NAN");
 }
 
+void test_isless_isgreater(CheckIt& test)
+{
+    DoubleDouble x(13.5, 1e-20);
+    DoubleDouble y(13.5, -3e-18);
+    DoubleDouble z(99.0, -3e-18);
+    DoubleDouble nan_dd(NAN);
+
+    assert_true(test, isless(x, z), "isless(x, z)");
+    assert_true(test, isless(y, x), "isless(y, x)");
+    assert_true(test, isless(y, 14.0), "isless(y, 14.0)");
+    assert_true(test, isless(y, 13.5), "isless(y, 13.5)");
+    assert_true(test, isless(13.5, x), "isless(13.5, x)");
+    assert_false(test, isless(x, x), "isless(x, x) same value");
+    assert_false(test, isless(z, x), "isless(z, x)");
+    assert_false(test, isless(x, y), "isless(x, y)");
+    assert_false(test, isless(x, nan_dd), "isless(x, nan)");
+    assert_false(test, isless(nan_dd, x), "isless(nan, x)");
+    assert_false(test, isless(nan_dd, nan_dd), "isless(nan, nan)");
+    assert_false(test, isless(x, NAN), "isless(x, NAN double)");
+    assert_false(test, isless(NAN, x), "isless(NAN double, x)");
+
+    assert_true(test, isgreater(z, x), "isgreater(z, x)");
+    assert_true(test, isgreater(x, y), "isgreater(x, y)");
+    assert_true(test, isgreater(14.0, y), "isgreater(14.0, y)");
+    assert_true(test, isgreater(13.5, y), "isgreater(13.5, y)");
+    assert_true(test, isgreater(x, 13.5), "isgreater(x, 13.5)");
+    assert_false(test, isgreater(x, x), "isgreater(x, x) same value");
+    assert_false(test, isgreater(x, z), "isgreater(x, z)");
+    assert_false(test, isgreater(y, x), "isgreater(y, x)");
+    assert_false(test, isgreater(x, nan_dd), "isgreater(x, nan)");
+    assert_false(test, isgreater(nan_dd, x), "isgreater(nan, x)");
+    assert_false(test, isgreater(nan_dd, nan_dd), "isgreater(nan, nan)");
+    assert_false(test, isgreater(x, NAN), "isgreater(x, NAN double)");
+    assert_false(test, isgreater(NAN, x), "isgreater(NAN double, x)");
+}
+
 
 void test_abs(CheckIt& test)
 {
@@ -1489,6 +1525,7 @@ int main(int argc, char *argv[])
     test_inplace_divide(test);
     test_expressions(test);
     test_comparisons(test);
+    test_isless_isgreater(test);
     test_abs(test);
     test_signbit(test);
     test_copysign(test);

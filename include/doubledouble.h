@@ -1355,6 +1355,36 @@ inline bool isfinite(DoubleDouble const& arg)
 {
     return std::isfinite(arg.upper) && std::isfinite(arg.lower);
 }
+inline bool isless(DoubleDouble const& x, DoubleDouble const& y)
+{
+    if (isnan(x) || isnan(y)) return false;
+    return x < y;
+}
+inline bool isless(DoubleDouble const& x, double y)
+{
+    if (isnan(x) || std::isnan(y)) return false;
+    return x < y;
+}
+inline bool isless(double x, DoubleDouble const& y)
+{
+    if (std::isnan(x) || isnan(y)) return false;
+    return x < y;
+}
+inline bool isgreater(DoubleDouble const& x, DoubleDouble const& y)
+{
+    if (isnan(x) || isnan(y)) return false;
+    return x > y;
+}
+inline bool isgreater(DoubleDouble const& x, double y)
+{
+    if (isnan(x) || std::isnan(y)) return false;
+    return x > y;
+}
+inline bool isgreater(double x, DoubleDouble const& y)
+{
+    if (std::isnan(x) || isnan(y)) return false;
+    return x > y;
+}
 inline DoubleDouble sqrt(DoubleDouble const& arg) {
     return arg.sqrt();
 }
