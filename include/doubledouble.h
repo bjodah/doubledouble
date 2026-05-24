@@ -199,6 +199,13 @@ public:
     DoubleDouble log1p() const;
     DoubleDouble sqrt() const;
     DoubleDouble abs() const;
+    DoubleDouble sin() const;
+    DoubleDouble cos() const;
+    DoubleDouble cosm1() const;
+    DoubleDouble tan() const;
+    DoubleDouble asin() const;
+    DoubleDouble acos() const;
+    DoubleDouble atan() const;
 };
 
 //
@@ -218,9 +225,17 @@ inline const DoubleDouble dd_e{2.7182818284590452, 1.44564689172925013472e-16};
 // ln(2)
 inline const DoubleDouble dd_ln2{0.6931471805599453, 2.3190468138462996e-17};
 // pi
-inline const DoubleDouble dd_pi{3.1415926535897932, 1.22464679914735317636e-16};
+inline const DoubleDouble dd_pi{3.1415926535897931, 1.2246467991473532e-16};
 // pi/2
-inline const DoubleDouble dd_pi_2{1.5707963267948966, 6.123233995736766e-17};
+inline const DoubleDouble dd_pi_2{1.5707963267948966, 6.1232339957367660e-17};
+// 2*pi
+inline const DoubleDouble dd_2pi{6.2831853071795862, 2.4492935982947064e-16};
+// pi/4
+inline const DoubleDouble dd_pi_4{0.7853981633974483, 3.0616169978683830e-17};
+// 3*pi/4
+inline const DoubleDouble dd_3pi_4{2.3561944901923448, 9.1848509936051484e-17};
+// pi/24
+inline const DoubleDouble dd_pi_24{0.13089969389957473, -1.3401022080638637e-17};
 // 1/pi
 inline const DoubleDouble dd_1_pi{0.3183098861837907, -1.9678676675182486e-17};
 // 1/sqrt(pi)
@@ -644,6 +659,443 @@ inline DoubleDouble DoubleDouble::abs() const
     else {
         return *this;
     }
+}
+
+inline DoubleDouble sqr(DoubleDouble const& x)
+{
+    return x*x;
+}
+
+inline bool is_zero(DoubleDouble const& x)
+{
+    return x.upper == 0.0 && x.lower == 0.0;
+}
+
+inline bool is_one(DoubleDouble const& x)
+{
+    return x.upper == 1.0 && x.lower == 0.0;
+}
+
+inline bool signbit(DoubleDouble const& x)
+{
+    return std::signbit(x.upper) || ((x.upper == 0.0) && std::signbit(x.lower));
+}
+
+inline bool isnan_dd(DoubleDouble const& x)
+{
+    return isnan(x.upper) || isnan(x.lower);
+}
+
+inline DoubleDouble dd_nan()
+{
+    return DoubleDouble(NAN, NAN);
+}
+
+inline double nearest_integer_as_double(DoubleDouble const& x)
+{
+    return std::floor(x.upper + 0.5);
+}
+
+inline DoubleDouble hypot(const DoubleDouble& x, const DoubleDouble& y);
+
+inline constexpr std::array<DoubleDouble, 6> sin_table_pi_24{{
+    DoubleDouble( 1.30526192220051601e-01, -9.60766602390152377e-18),
+    DoubleDouble( 2.58819045102520739e-01,  2.28724950049556087e-17),
+    DoubleDouble( 3.82683432365089782e-01, -1.00507726964615876e-17),
+    DoubleDouble( 5.00000000000000000e-01,  0.00000000000000000e+00),
+    DoubleDouble( 6.08761429008720656e-01, -1.64704797902508702e-17),
+    DoubleDouble( 7.07106781186547573e-01, -4.83364665672645673e-17),
+}};
+
+inline constexpr std::array<DoubleDouble, 6> cos_table_pi_24{{
+    DoubleDouble( 9.91444861373810382e-01,  2.89898987445453692e-17),
+    DoubleDouble( 9.65925826289068312e-01, -2.54639715623089554e-17),
+    DoubleDouble( 9.23879532511286738e-01,  1.76450470843366771e-17),
+    DoubleDouble( 8.66025403784438597e-01,  5.01754211090345140e-17),
+    DoubleDouble( 7.93353340291235165e-01, -5.02862507390712490e-19),
+    DoubleDouble( 7.07106781186547573e-01, -4.83364665672645673e-17),
+}};
+
+inline constexpr std::array<DoubleDouble, 8> sin_inv_fact{{
+    DoubleDouble(1.66666666666666657e-01,  9.25185853854297066e-18),
+    DoubleDouble(8.33333333333333322e-03,  1.15648231731787138e-19),
+    DoubleDouble(1.98412698412698413e-04,  1.72095582934207053e-22),
+    DoubleDouble(2.75573192239858925e-06, -1.85839327404647208e-22),
+    DoubleDouble(2.50521083854417202e-08, -1.44881407093591197e-24),
+    DoubleDouble(1.60590438368216133e-10,  1.25852945887520981e-26),
+    DoubleDouble(7.64716373181981641e-13,  7.03872877733453001e-30),
+    DoubleDouble(2.81145725434552060e-15,  1.65088427308614326e-31),
+}};
+
+inline constexpr std::array<DoubleDouble, 9> cos_inv_fact{{
+    DoubleDouble(5.00000000000000000e-01,  0.00000000000000000e+00),
+    DoubleDouble(4.16666666666666644e-02,  2.31296463463574266e-18),
+    DoubleDouble(1.38888888888888894e-03, -5.30054395437357706e-20),
+    DoubleDouble(2.48015873015873016e-05,  2.15119478667758816e-23),
+    DoubleDouble(2.75573192239858883e-07,  2.37677146222502973e-23),
+    DoubleDouble(2.08767569878681002e-09, -1.20734505911325997e-25),
+    DoubleDouble(1.14707455977297245e-11,  2.06555127528307454e-28),
+    DoubleDouble(4.77947733238738525e-14,  4.39920548583408126e-31),
+    DoubleDouble(1.56192069685862253e-16,  1.19106796602737540e-32),
+}};
+
+inline DoubleDouble sin_taylor(DoubleDouble const& x)
+{
+    if (is_zero(x)) {
+        return dd_zero;
+    }
+    const DoubleDouble x2 = x*x;
+    const DoubleDouble poly =
+        DoubleDouble(1.0) + x2 * (
+            -sin_inv_fact[0] + x2 * (
+                sin_inv_fact[1] + x2 * (
+                    -sin_inv_fact[2] + x2 * (
+                        sin_inv_fact[3] + x2 * (
+                            -sin_inv_fact[4] + x2 * (
+                                sin_inv_fact[5] + x2 * (
+                                    -sin_inv_fact[6] + x2 *
+                                    sin_inv_fact[7]
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        );
+    return x * poly;
+}
+
+inline DoubleDouble cos_taylor(DoubleDouble const& x)
+{
+    if (is_zero(x)) {
+        return dd_one;
+    }
+    const DoubleDouble x2 = x*x;
+    return DoubleDouble(1.0) + x2 * (
+        -cos_inv_fact[0] + x2 * (
+            cos_inv_fact[1] + x2 * (
+                -cos_inv_fact[2] + x2 * (
+                    cos_inv_fact[3] + x2 * (
+                        -cos_inv_fact[4] + x2 * (
+                            cos_inv_fact[5] + x2 * (
+                                -cos_inv_fact[6] + x2 * (
+                                    cos_inv_fact[7] + x2 *
+                                    -cos_inv_fact[8]
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    );
+}
+
+inline DoubleDouble cosm1_taylor(DoubleDouble const& x)
+{
+    if (is_zero(x)) {
+        return dd_zero;
+    }
+    const DoubleDouble x2 = x*x;
+    return x2 * (
+        -cos_inv_fact[0] + x2 * (
+            cos_inv_fact[1] + x2 * (
+                -cos_inv_fact[2] + x2 * (
+                    cos_inv_fact[3] + x2 * (
+                        -cos_inv_fact[4] + x2 * (
+                            cos_inv_fact[5] + x2 * (
+                                -cos_inv_fact[6] + x2 * (
+                                    cos_inv_fact[7] + x2 *
+                                    -cos_inv_fact[8]
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+    );
+}
+
+inline void sincos_taylor(DoubleDouble const& x, DoubleDouble& s, DoubleDouble& c)
+{
+    s = sin_taylor(x);
+    c = cos_taylor(x);
+}
+
+inline bool trig_range_reduce(DoubleDouble const& a, int& j, int& k, DoubleDouble& t)
+{
+    const double z = nearest_integer_as_double(a / dd_2pi);
+    const DoubleDouble r = a - dd_2pi*z;
+    j = static_cast<int>(std::floor(r.upper / dd_pi_2.upper + 0.5));
+    if (j < -2 || j > 2) {
+        return false;
+    }
+    t = r - dd_pi_2*static_cast<double>(j);
+    k = static_cast<int>(std::floor(t.upper / dd_pi_24.upper + 0.5));
+    if (std::abs(k) > 6) {
+        return false;
+    }
+    t -= dd_pi_24*static_cast<double>(k);
+    return !isnan(t.upper) && !isnan(t.lower);
+}
+
+inline void sincos_reduced(int j, int k, DoubleDouble const& t, DoubleDouble& s, DoubleDouble& c)
+{
+    DoubleDouble sin_t, cos_t;
+    sincos_taylor(t, sin_t, cos_t);
+
+    DoubleDouble sr = sin_t;
+    DoubleDouble cr = cos_t;
+    if (k != 0) {
+        const int table_index = std::abs(k) - 1;
+        const DoubleDouble& sk = sin_table_pi_24[table_index];
+        const DoubleDouble& ck = cos_table_pi_24[table_index];
+        if (k > 0) {
+            sr = ck*sin_t + sk*cos_t;
+            cr = ck*cos_t - sk*sin_t;
+        }
+        else {
+            sr = ck*sin_t - sk*cos_t;
+            cr = ck*cos_t + sk*sin_t;
+        }
+    }
+
+    switch (j) {
+    case 0:
+        s = sr;
+        c = cr;
+        break;
+    case 1:
+        s = cr;
+        c = -sr;
+        break;
+    case -1:
+        s = -cr;
+        c = sr;
+        break;
+    case 2:
+    case -2:
+        s = -sr;
+        c = -cr;
+        break;
+    default:
+        s = dd_nan();
+        c = dd_nan();
+        break;
+    }
+}
+
+inline void sincos(DoubleDouble const& a, DoubleDouble& s, DoubleDouble& c)
+{
+    if (isnan_dd(a)) {
+        s = dd_nan();
+        c = dd_nan();
+        return;
+    }
+    if (isinf(a.upper)) {
+        std::feraiseexcept(FE_INVALID);
+        s = dd_nan();
+        c = dd_nan();
+        return;
+    }
+    if (is_zero(a)) {
+        s = a;
+        c = dd_one;
+        return;
+    }
+
+    int j = 0;
+    int k = 0;
+    DoubleDouble t;
+    if (!trig_range_reduce(a, j, k, t)) {
+        s = dd_nan();
+        c = dd_nan();
+        return;
+    }
+    sincos_reduced(j, k, t, s, c);
+}
+
+inline DoubleDouble DoubleDouble::sin() const
+{
+    DoubleDouble s, c;
+    sincos(*this, s, c);
+    return s;
+}
+
+inline DoubleDouble DoubleDouble::cos() const
+{
+    DoubleDouble s, c;
+    sincos(*this, s, c);
+    return c;
+}
+
+inline DoubleDouble DoubleDouble::cosm1() const
+{
+    if (isnan_dd(*this)) {
+        return dd_nan();
+    }
+    if (isinf(upper)) {
+        std::feraiseexcept(FE_INVALID);
+        return dd_nan();
+    }
+    if (is_zero(*this)) {
+        return dd_zero;
+    }
+    if (std::fabs(upper) <= 0.5*dd_pi_24.upper) {
+        return cosm1_taylor(*this);
+    }
+
+    int j = 0;
+    int k = 0;
+    DoubleDouble t;
+    if (!trig_range_reduce(*this, j, k, t)) {
+        return dd_nan();
+    }
+    if (j == 0 && k == 0) {
+        return cosm1_taylor(t);
+    }
+
+    DoubleDouble s, c;
+    sincos_reduced(j, k, t, s, c);
+    return c - dd_one;
+}
+
+inline DoubleDouble DoubleDouble::tan() const
+{
+    DoubleDouble s, c;
+    sincos(*this, s, c);
+    return s/c;
+}
+
+inline DoubleDouble sin(DoubleDouble const& arg)
+{
+    return arg.sin();
+}
+
+inline DoubleDouble cos(DoubleDouble const& arg)
+{
+    return arg.cos();
+}
+
+inline DoubleDouble cosm1(DoubleDouble const& arg)
+{
+    return arg.cosm1();
+}
+
+inline DoubleDouble tan(DoubleDouble const& arg)
+{
+    return arg.tan();
+}
+
+inline DoubleDouble atan2(DoubleDouble const& y, DoubleDouble const& x)
+{
+    if (isnan_dd(x) || isnan_dd(y)) {
+        return dd_nan();
+    }
+
+    if (isinf(y.upper)) {
+        if (isinf(x.upper)) {
+            if (y.upper > 0.0) {
+                return x.upper > 0.0 ? dd_pi_4 : dd_3pi_4;
+            }
+            return x.upper > 0.0 ? -dd_pi_4 : -dd_3pi_4;
+        }
+        return y.upper > 0.0 ? dd_pi_2 : -dd_pi_2;
+    }
+
+    if (isinf(x.upper)) {
+        if (x.upper > 0.0) {
+            return signbit(y) ? DoubleDouble(-0.0, 0.0) : dd_zero;
+        }
+        return signbit(y) ? -dd_pi : dd_pi;
+    }
+
+    if (is_zero(x) && is_zero(y)) {
+        std::feraiseexcept(FE_INVALID);
+        return dd_nan();
+    }
+    if (is_zero(y)) {
+        if (x > 0.0) {
+            return signbit(y) ? DoubleDouble(-0.0, 0.0) : dd_zero;
+        }
+        return signbit(y) ? -dd_pi : dd_pi;
+    }
+    if (is_zero(x)) {
+        return signbit(y) ? -dd_pi_2 : dd_pi_2;
+    }
+
+    const DoubleDouble r = hypot(x, y);
+    const DoubleDouble xx = x/r;
+    const DoubleDouble yy = y/r;
+    DoubleDouble z{std::atan2(y.upper, x.upper)};
+    DoubleDouble sin_z, cos_z;
+    sincos(z, sin_z, cos_z);
+    if (xx.abs() > yy.abs()) {
+        z += (yy - sin_z)/cos_z;
+    }
+    else {
+        z -= (xx - cos_z)/sin_z;
+    }
+    return z;
+}
+
+inline DoubleDouble DoubleDouble::atan() const
+{
+    return atan2(*this, dd_one);
+}
+
+inline DoubleDouble atan(DoubleDouble const& arg)
+{
+    return arg.atan();
+}
+
+inline DoubleDouble DoubleDouble::asin() const
+{
+    if (isnan_dd(*this)) {
+        return dd_nan();
+    }
+    if (this->abs() > dd_one) {
+        std::feraiseexcept(FE_INVALID);
+        return dd_nan();
+    }
+    if (*this == dd_one) {
+        return dd_pi_2;
+    }
+    if (*this == -dd_one) {
+        return -dd_pi_2;
+    }
+    const DoubleDouble t = (dd_one - *this) * (dd_one + *this);
+    return atan2(*this, t.sqrt());
+}
+
+inline DoubleDouble DoubleDouble::acos() const
+{
+    if (isnan_dd(*this)) {
+        return dd_nan();
+    }
+    if (this->abs() > dd_one) {
+        std::feraiseexcept(FE_INVALID);
+        return dd_nan();
+    }
+    if (*this == dd_one) {
+        return dd_zero;
+    }
+    if (*this == -dd_one) {
+        return dd_pi;
+    }
+    const DoubleDouble t = (dd_one - *this) * (dd_one + *this);
+    return atan2(t.sqrt(), *this);
+}
+
+inline DoubleDouble asin(DoubleDouble const& arg)
+{
+    return arg.asin();
+}
+
+inline DoubleDouble acos(DoubleDouble const& arg)
+{
+    return arg.acos();
 }
 
 static const std::array<DoubleDouble, 10> numer{
