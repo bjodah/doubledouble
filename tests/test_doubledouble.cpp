@@ -862,6 +862,146 @@ void test_hypot(CheckIt& test)
     assert_equal_fp(test, h.upper, (double) INFINITY, "hypot(INF, NAN) is INF");
 }
 
+static const unary_case sinh_cases[] = {
+    {"0", 0.0, 0.0, 0.0, 0.0, 5e-14},
+    {"1e-40", 9.99999999999999929e-41, 7.07071206001198558e-57, 9.99999999999999929e-41, 7.07071206001198558e-57, 5e-14},
+    {"1e-20+3e-38", 9.99999999999999945e-21, 5.78467285457904316e-37, 9.99999999999999945e-21, 5.78467285457904316e-37, 5e-14},
+    {"1e-12", 9.99999999999999980e-13, 2.01133523707443852e-29, 9.99999999999999980e-13, 2.01133525374110523e-29, 5e-14},
+    {"1e-8", 1.00000000000000002e-08, -2.09225608301284711e-25, 1.00000000000000002e-08, -4.25589416346180570e-26, 5e-14},
+    {"1e-4", 1.00000000000000005e-04, -4.79217360238592994e-21, 1.00000000166666666e-04, 4.74635916281843722e-22, 5e-14},
+    {"0.05", 5.00000000000000028e-02, -2.77555756156289151e-18, 5.00208359376550157e-02, -4.31868895548629297e-19, 5e-14},
+    {"0.125", 1.25000000000000000e-01, 0.0, 1.25325775241115461e-01, -4.31830988622961368e-18, 5e-14},
+    {"0.5", 5.00000000000000000e-01, 0.0, 5.21095305493747385e-01, -2.33281834764045972e-17, 5e-14},
+    {"1", 1.0, 0.0, 1.17520119364380138e+00, 7.84967214228566853e-17, 5e-14},
+    {"-1", -1.0, 0.0, -1.17520119364380138e+00, -7.84967214228566853e-17, 5e-14},
+    {"10", 10.0, 0.0, 1.10132328747033935e+04, -8.60416647466444226e-14, 5e-14},
+    {"-10", -10.0, 0.0, -1.10132328747033935e+04, 8.60416647466444226e-14, 5e-14},
+    {"40", 40.0, 0.0, 1.17692633418510000e+17, -7.29605004462548301e+00, 5e-13},
+    {"710", 710.0, 0.0, 1.11699738308085546e+308, 5.77253803440148121e+291, 5e-12}
+};
+
+static const unary_case cosh_cases[] = {
+    {"0", 0.0, 0.0, 1.0, 0.0, 5e-14},
+    {"1e-40", 9.99999999999999929e-41, 7.07071206001198558e-57, 1.0, 4.99999999999999981e-81, 5e-14},
+    {"1e-20+3e-38", 9.99999999999999945e-21, 5.78467285457904316e-37, 1.0, 4.99999999999999965e-41, 5e-14},
+    {"1e-12", 9.99999999999999980e-13, 2.01133523707443852e-29, 1.0, 4.99999999999999962e-25, 5e-14},
+    {"1e-8", 1.00000000000000002e-08, -2.09225608301284711e-25, 1.0, 4.99999999999999990e-17, 5e-14},
+    {"1e-4", 1.00000000000000005e-04, -4.79217360238592994e-21, 1.00000000499999997e+00, 3.45540215226663072e-17, 5e-14},
+    {"0.05", 5.00000000000000028e-02, -2.77555756156289151e-18, 1.00125026043836907e+00, -4.19125468510407076e-17, 5e-14},
+    {"0.125", 1.25000000000000000e-01, 0.0, 1.00782267782571089e+00, -2.88080034379573318e-17, 5e-14},
+    {"0.5", 5.00000000000000000e-01, 0.0, 1.12762596520638070e+00, 8.70348011445619159e-17, 5e-14},
+    {"1", 1.0, 0.0, 1.54308063481524371e+00, 6.60679677500683305e-17, 5e-14},
+    {"-1", -1.0, 0.0, 1.54308063481524371e+00, 6.60679677500683305e-17, 5e-14},
+    {"10", 10.0, 0.0, 1.10132329201033226e+04, 5.27017598240763681e-13, 5e-14},
+    {"40", 40.0, 0.0, 1.17692633418510000e+17, -7.29605004462548301e+00, 5e-13},
+    {"710", 710.0, 0.0, 1.11699738308085546e+308, 5.77253803440148121e+291, 5e-12}
+};
+
+static const unary_case tanh_reference_cases[] = {
+    {"0", 0.0, 0.0, 0.0, 0.0, 5e-14},
+    {"1e-40", 9.99999999999999929e-41, 7.07071206001198558e-57, 9.99999999999999929e-41, 7.07071206001198558e-57, 5e-14},
+    {"1e-20+3e-38", 9.99999999999999945e-21, 5.78467285457904316e-37, 9.99999999999999945e-21, 5.78467285457904316e-37, 5e-14},
+    {"1e-12", 9.99999999999999980e-13, 2.01133523707443852e-29, 9.99999999999999980e-13, 2.01133520374110511e-29, 5e-14},
+    {"1e-8", 1.00000000000000002e-08, -2.09225608301284711e-25, 1.00000000000000002e-08, -5.42558941634618019e-25, 5e-14},
+    {"1e-4", 1.00000000000000005e-04, -4.79217360238592994e-21, 9.99999996666666683e-05, -2.73265489009813563e-22, 5e-14},
+    {"0.05", 5.00000000000000028e-02, -2.77555756156289151e-18, 4.99583749578799696e-02,  2.57390062653096227e-18, 5e-14},
+    {"0.125", 1.25000000000000000e-01, 0.0, 1.24353001771596208e-01, -2.14518808131414414e-19, 5e-14},
+    {"0.5", 5.00000000000000000e-01, 0.0, 4.62117157260009737e-01,  2.19166032382609282e-17, 5e-14},
+    {"1", 1.0, 0.0, 7.61594155955764851e-01,  3.70902144821649241e-17, 5e-14},
+    {"-1", -1.0, 0.0, -7.61594155955764851e-01, -3.70902144821649241e-17, 5e-14},
+    {"10", 10.0, 0.0, 9.99999995877692727e-01,  3.69327899661659591e-17, 5e-14},
+    {"40", 40.0, 0.0, 1.0, -3.60970277569083060e-35, 5e-14},
+    {"710", 710.0, 0.0, 1.0, 0.0, 5e-14}
+};
+
+static const unary_case asinh_cases[] = {
+    {"0", 0.0, 0.0, 0.0, 0.0, 5e-14},
+    {"1e-40", 9.99999999999999929e-41, 7.07071206001198558e-57, 9.99999999999999929e-41, 7.07071206001198558e-57, 5e-14},
+    {"1e-12", 9.99999999999999980e-13, 2.01133523707443852e-29, 9.99999999999999980e-13, 2.01133522040777182e-29, 5e-14},
+    {"1e-8", 1.00000000000000002e-08, -2.09225608301284711e-25, 1.00000000000000002e-08, -3.75892274967951365e-25, 5e-14},
+    {"1e-4", 1.00000000000000005e-04, -4.79217360238592994e-21, 9.99999998333333298e-05,  4.32687736390399171e-21, 5e-14},
+    {"0.125", 1.25000000000000000e-01, 0.0, 1.24676746921442747e-01, -2.58168289489360060e-18, 5e-14},
+    {"0.5", 5.00000000000000000e-01, 0.0, 4.81211825059603471e-01, -2.32578170134627362e-17, 5e-14},
+    {"1", 1.0, 0.0, 8.81373587019543048e-01, -2.25054589282586606e-17, 5e-14},
+    {"-1", -1.0, 0.0, -8.81373587019543048e-01, 2.25054589282586606e-17, 5e-14},
+    {"10", 10.0, 0.0, 2.99822295029796981e+00, -7.44026148092429399e-17, 5e-14},
+    {"1e40", 1.00000000000000003e+40, -3.03786028427003667e+23, 9.27965509003217761e+01, -3.44178620965229906e-15, 5e-14}
+};
+
+static const unary_case acosh_cases[] = {
+    {"1", 1.0, 0.0, 0.0, 0.0, 5e-14},
+    {"1+2^-106", 1.0, 1.23259516440783095e-32, 1.57009245868377517e-16, -1.07328516224002451e-32, 5e-14},
+    {"1+2^-54", 1.0, 5.55111512312578270e-17, 1.05367121277235087e-08, -7.69011564893361374e-25, 5e-14},
+    {"1.0001", 1.00009999999999999e+00, 1.10134124042815525e-17, 1.41420177752523239e-02,  3.19545991309551628e-19, 1e-13},
+    {"1.125", 1.12500000000000000e+00, 0.0, 4.94932923094526911e-01, -5.02253120893777902e-18, 5e-14},
+    {"2", 2.0, 0.0, 1.31695789692481680e+00, -8.68225084485202174e-17, 5e-14},
+    {"10", 10.0, 0.0, 2.99322284612638079e+00,  1.10644350351014916e-16, 5e-14},
+    {"1e40", 1.00000000000000003e+40, -3.03786028427003667e+23, 9.27965509003217761e+01, -3.44178620965229906e-15, 5e-14}
+};
+
+static const unary_case atanh_reference_cases[] = {
+    {"0", 0.0, 0.0, 0.0, 0.0, 5e-14},
+    {"1e-40", 9.99999999999999929e-41, 7.07071206001198558e-57, 9.99999999999999929e-41, 7.07071206001198558e-57, 5e-14},
+    {"1e-12", 9.99999999999999980e-13, 2.01133523707443852e-29, 9.99999999999999980e-13, 2.01133527040777193e-29, 5e-14},
+    {"1e-8", 1.00000000000000002e-08, -2.09225608301284711e-25, 1.00000000000000002e-08,  1.24107725032048620e-25, 5e-14},
+    {"1e-4", 1.00000000000000005e-04, -4.79217360238592994e-21, 1.00000000333333341e-04, -5.97774837353982333e-21, 5e-14},
+    {"0.125", 1.25000000000000000e-01, 0.0, 1.25657214140453027e-01,  1.14469746886047311e-17, 5e-14},
+    {"0.5", 5.00000000000000000e-01, 0.0, 5.49306144334054891e-01, -4.53564861750076498e-17, 5e-14},
+    {"-0.5", -5.00000000000000000e-01, 0.0, -5.49306144334054891e-01,  4.53564861750076498e-17, 5e-14},
+    {"1-2^-54", 1.0, -5.55111512312578270e-17, 1.90615474653984975e+01, -1.54107481201913735e-15, 5e-14},
+    {"-1+2^-54", -1.0, 5.55111512312578270e-17, -1.90615474653984975e+01,  1.54107481201913735e-15, 5e-14}
+};
+
+void test_sinh(CheckIt& test)
+{
+    for (const auto& sample : sinh_cases) {
+        DoubleDouble x{sample.xhi, sample.xlo};
+        assert_dd_close(test, sinh(x), sample.yhi, sample.ylo, sample.reltol,
+                        std::string("sinh ") + sample.label);
+        assert_dd_close(test, x.sinh(), sample.yhi, sample.ylo, sample.reltol,
+                        std::string("member sinh ") + sample.label);
+    }
+    assert_isnan(test, sinh(DoubleDouble(NAN)));
+    assert_true(test, std::isinf(sinh(dd_inf).upper) && sinh(dd_inf).upper > 0, "sinh(+inf) == +inf");
+    assert_true(test, std::isinf(sinh(-dd_inf).upper) && sinh(-dd_inf).upper < 0, "sinh(-inf) == -inf");
+}
+
+void test_cosh(CheckIt& test)
+{
+    for (const auto& sample : cosh_cases) {
+        DoubleDouble x{sample.xhi, sample.xlo};
+        assert_dd_close(test, cosh(x), sample.yhi, sample.ylo, sample.reltol,
+                        std::string("cosh ") + sample.label);
+        assert_dd_close(test, x.cosh(), sample.yhi, sample.ylo, sample.reltol,
+                        std::string("member cosh ") + sample.label);
+    }
+    assert_isnan(test, cosh(DoubleDouble(NAN)));
+    assert_true(test, std::isinf(cosh(dd_inf).upper) && cosh(dd_inf).upper > 0, "cosh(+inf) == +inf");
+    assert_true(test, std::isinf(cosh(-dd_inf).upper) && cosh(-dd_inf).upper > 0, "cosh(-inf) == +inf");
+}
+
+void test_sincosh_hy(CheckIt& test)
+{
+    for (const auto& sample : sinh_cases) {
+        DoubleDouble x{sample.xhi, sample.xlo};
+        DoubleDouble s, c;
+        sincosh(x, s, c);
+        assert_dd_close(test, s, sample.yhi, sample.ylo, sample.reltol,
+                        std::string("sincosh sinh ") + sample.label);
+    }
+    for (const auto& sample : cosh_cases) {
+        DoubleDouble x{sample.xhi, sample.xlo};
+        DoubleDouble s, c;
+        sincosh(x, s, c);
+        assert_dd_close(test, c, sample.yhi, sample.ylo, sample.reltol,
+                        std::string("sincosh cosh ") + sample.label);
+    }
+    DoubleDouble s, c;
+    sincosh(DoubleDouble(NAN), s, c);
+    assert_isnan(test, s);
+    assert_isnan(test, c);
+}
+
 void test_tanh(CheckIt &test)
 {
   DoubleDouble x, y;
@@ -869,6 +1009,98 @@ void test_tanh(CheckIt &test)
   y = tanh(x);
   assert_equal_fp(test, y.upper, 1.0, "tanh(438) (upper)");
   assert_equal_fp(test, y.lower, 0.0, "tanh(438) (lower)");
+
+  for (const auto& sample : tanh_reference_cases) {
+      DoubleDouble tx{sample.xhi, sample.xlo};
+      assert_dd_close(test, tanh(tx), sample.yhi, sample.ylo, sample.reltol,
+                      std::string("tanh ") + sample.label);
+      assert_dd_close(test, tx.tanh(), sample.yhi, sample.ylo, sample.reltol,
+                      std::string("member tanh ") + sample.label);
+  }
+  assert_isnan(test, tanh(DoubleDouble(NAN)));
+  assert_equal_fp(test, tanh(dd_inf).upper, 1.0, "tanh(+inf) == 1");
+  assert_equal_fp(test, tanh(-dd_inf).upper, -1.0, "tanh(-inf) == -1");
+}
+
+void test_asinh(CheckIt& test)
+{
+    for (const auto& sample : asinh_cases) {
+        DoubleDouble x{sample.xhi, sample.xlo};
+        assert_dd_close(test, asinh(x), sample.yhi, sample.ylo, sample.reltol,
+                        std::string("asinh ") + sample.label);
+        assert_dd_close(test, x.asinh(), sample.yhi, sample.ylo, sample.reltol,
+                        std::string("member asinh ") + sample.label);
+    }
+    assert_isnan(test, asinh(DoubleDouble(NAN)));
+    assert_true(test, std::isinf(asinh(dd_inf).upper) && asinh(dd_inf).upper > 0, "asinh(+inf) == +inf");
+    assert_true(test, std::isinf(asinh(-dd_inf).upper) && asinh(-dd_inf).upper < 0, "asinh(-inf) == -inf");
+}
+
+void test_acosh(CheckIt& test)
+{
+    for (const auto& sample : acosh_cases) {
+        DoubleDouble x{sample.xhi, sample.xlo};
+        assert_dd_close(test, acosh(x), sample.yhi, sample.ylo, sample.reltol,
+                        std::string("acosh ") + sample.label);
+        assert_dd_close(test, x.acosh(), sample.yhi, sample.ylo, sample.reltol,
+                        std::string("member acosh ") + sample.label);
+    }
+    assert_isnan(test, acosh(DoubleDouble(NAN)));
+    assert_true(test, std::isinf(acosh(dd_inf).upper) && acosh(dd_inf).upper > 0, "acosh(+inf) == +inf");
+    assert_isnan(test, acosh(DoubleDouble(0.5)));
+    assert_isnan(test, acosh(DoubleDouble(-dd_inf)));
+}
+
+void test_atanh(CheckIt& test)
+{
+    for (const auto& sample : atanh_reference_cases) {
+        DoubleDouble x{sample.xhi, sample.xlo};
+        assert_dd_close(test, atanh(x), sample.yhi, sample.ylo, sample.reltol,
+                        std::string("atanh ") + sample.label);
+        assert_dd_close(test, x.atanh(), sample.yhi, sample.ylo, sample.reltol,
+                        std::string("member atanh ") + sample.label);
+    }
+    assert_isnan(test, atanh(DoubleDouble(NAN)));
+    assert_true(test, std::isinf(atanh(DoubleDouble(1.0)).upper) && atanh(DoubleDouble(1.0)).upper > 0, "atanh(1) == +inf");
+    assert_true(test, std::isinf(atanh(DoubleDouble(-1.0)).upper) && atanh(DoubleDouble(-1.0)).upper < 0, "atanh(-1) == -inf");
+    assert_isnan(test, atanh(DoubleDouble(1.5)));
+    assert_isnan(test, atanh(DoubleDouble(-1.5)));
+}
+
+void test_hyperbolic_identities(CheckIt& test)
+{
+    double test_values[] = {-5.0, -1.0, -0.5, 0.0, 0.5, 1.0, 5.0};
+    for (double val : test_values) {
+        DoubleDouble x{val};
+        DoubleDouble s = sinh(x);
+        DoubleDouble c = cosh(x);
+        DoubleDouble t = tanh(x);
+        
+        DoubleDouble one_check = c*c - s*s;
+        assert_close_fp(test, one_check.upper, 1.0, 1e-15, std::string("cosh^2 - sinh^2 near 1 for x=") + std::to_string(val));
+        assert_true(test, std::fabs(one_check.lower) < 1e-25, std::string("cosh^2 - sinh^2 lower near 0 for x=") + std::to_string(val));
+
+        DoubleDouble t_check = s/c;
+        assert_close_fp(test, t.upper, t_check.upper, 1e-15, std::string("tanh vs sinh/cosh upper for x=") + std::to_string(val));
+        if (std::fabs(t_check.lower) < 1e-30) {
+            assert_true(test, std::fabs(t.lower) < 1e-30, std::string("tanh vs sinh/cosh lower near 0 for x=") + std::to_string(val));
+        } else {
+            assert_close_fp(test, t.lower, t_check.lower, 1e-14, std::string("tanh vs sinh/cosh lower for x=") + std::to_string(val));
+        }
+    }
+
+    double inv_test_values[] = {-1.0, -0.5, 0.0, 0.5, 1.0};
+    for (double val : inv_test_values) {
+        DoubleDouble x{val};
+        assert_close_fp(test, asinh(sinh(x)).upper, x.upper, 1e-15, std::string("asinh(sinh(x)) for x=") + std::to_string(val));
+        assert_close_fp(test, atanh(tanh(x)).upper, x.upper, 1e-15, std::string("atanh(tanh(x)) for x=") + std::to_string(val));
+    }
+
+    double acosh_test_values[] = {1.0, 1.5, 2.0, 5.0};
+    for (double val : acosh_test_values) {
+        DoubleDouble x{val};
+        assert_close_fp(test, acosh(cosh(x)).upper, x.upper, 1e-15, std::string("acosh(cosh(x)) for x=") + std::to_string(val));
+    }
 }
 
 void test_dsum(CheckIt& test)
@@ -1119,7 +1351,14 @@ int main(int argc, char *argv[])
     test_asin(test);
     test_acos(test);
     test_hypot(test);
+    test_sinh(test);
+    test_cosh(test);
+    test_sincosh_hy(test);
     test_tanh(test);
+    test_asinh(test);
+    test_acosh(test);
+    test_atanh(test);
+    test_hyperbolic_identities(test);
     test_dsum(test);
     test_pow(test);
     return test.print_summary("Summary: ");

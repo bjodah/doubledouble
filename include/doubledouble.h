@@ -206,6 +206,12 @@ public:
     DoubleDouble asin() const;
     DoubleDouble acos() const;
     DoubleDouble atan() const;
+    DoubleDouble sinh() const;
+    DoubleDouble cosh() const;
+    DoubleDouble tanh() const;
+    DoubleDouble asinh() const;
+    DoubleDouble acosh() const;
+    DoubleDouble atanh() const;
 };
 
 //
@@ -1418,49 +1424,181 @@ inline DoubleDouble fma(DoubleDouble const& x, DoubleDouble const& y, DoubleDoub
     DoubleDouble xy = two_product(x.lower, y.lower);
     return (((XY + z) + Xy) + Yx) + xy;
 }
-#include "inline_constexpr_stdarray_taylor_coeffs_tanh.ipp"
-inline DoubleDouble tanh(DoubleDouble const& x) {
-    // see _derivation_expm1.ipynb
-    if (x < 0) {
-        return -tanh(-x);
+inline void sincosh(DoubleDouble const& x, DoubleDouble& s, DoubleDouble& c)
+{
+    if (isnan_dd(x)) {
+        s = dd_nan();
+        c = dd_nan();
+        return;
     }
-    if (x.upper > 40) {
+    if (isinf(x.upper)) {
+        s = x.upper > 0 ? dd_inf : -dd_inf;
+        c = dd_inf;
+        return;
+    }
+    if (is_zero(x)) {
+        s = x;
+        c = dd_one;
+        return;
+    }
+    if (signbit(x)) {
+        sincosh(-x, s, c);
+        s = -s;
+        return;
+    }
+    if (x.upper > 40.0) {
+        if (x.upper - dd_ln2.upper > LOG_MAX_VALUE) {
+            s = dd_inf;
+            c = dd_inf;
+            return;
+        }
+        DoubleDouble e = (x - dd_ln2).exp();
+        s = e;
+        c = e;
+        return;
+    }
+    DoubleDouble u = x.expm1();
+    s = u * (u + 2.0) / (2.0 * (u + 1.0));
+    c = 1.0 + (u * u) / (2.0 * (u + 1.0));
+}
+
+inline DoubleDouble DoubleDouble::sinh() const
+{
+    DoubleDouble s, c;
+    sincosh(*this, s, c);
+    return s;
+}
+
+inline DoubleDouble DoubleDouble::cosh() const
+{
+    DoubleDouble s, c;
+    sincosh(*this, s, c);
+    return c;
+}
+
+inline DoubleDouble DoubleDouble::tanh() const
+{
+    if (isnan_dd(*this)) {
+        return dd_nan();
+    }
+    if (isinf(upper)) {
+        return upper > 0 ? dd_one : -dd_one;
+    }
+    if (is_zero(*this)) {
+        return *this;
+    }
+    if (signbit(*this)) {
+        return -(-*this).tanh();
+    }
+    if (upper > 40.0) {
         return dd_one;
     }
-    if (x.upper > 4) {
-        // tanh(x) = expm1(2x)/(exp(2x) + 1)
-        DoubleDouble e2xm1 = (2*x).expm1();
-        return e2xm1/(e2xm1+2);
+    DoubleDouble u = (2.0 * (*this)).expm1();
+    return u / (u + 2.0);
+}
+
+inline DoubleDouble DoubleDouble::asinh() const
+{
+    if (isnan_dd(*this)) {
+        // ...
+        return dd_nan();
     }
-    if (x.upper > 0.25) {
-        // TODO, currently this branch is the worst off
-        DoubleDouble ex = exp(x);
-        DoubleDouble emx = exp(-x);
-        return (ex-emx)/(ex+emx);
+    if (isinf(upper)) {
+        return *this;
     }
-    int expo;
-    /*DoubleDouble m =*/ frexp(x, &expo);
-    // Taylor series
-    DoubleDouble x2 = x * x;
-    DoubleDouble result {x};
-    DoubleDouble xarg {x};
-    int n_terms;
-    if (expo <= -53) {
-        n_terms = 1;
-    } else {
-        n_terms = std::ceil(-32/expo + 3./53*expo + 4);  // heuristic from regression of convergence plot
+    if (is_zero(*this)) {
+        return *this;
     }
-    for (int i=0; i<n_terms; i+=2) {
-        xarg *= x2;
-        //result += taylor_coeffs_tanh[i]*xarg;
-        DoubleDouble term_a = taylor_coeffs_tanh[i]*xarg;
-        xarg *= x2;
-        DoubleDouble term_b = taylor_coeffs_tanh[i+1]*xarg;
-        result += term_a + term_b;  // mitigates cancelation
+    if (signbit(*this)) {
+        return -(-*this).asinh();
     }
-    return result;
-    assert(false);
-    return {0.0/0.0, 0.0/0.0};
+    if (upper > 1e150) {
+        return this->log() + dd_ln2;
+    }
+    DoubleDouble x2 = (*this) * (*this);
+    DoubleDouble r = (1.0 + x2).sqrt();
+    return (*this + x2 / (1.0 + r)).log1p();
+}
+
+inline DoubleDouble DoubleDouble::acosh() const
+{
+    if (isnan_dd(*this)) {
+        return dd_nan();
+    }
+    if (isinf(upper)) {
+        if (upper < 0) {
+            std::feraiseexcept(FE_INVALID);
+            return dd_nan();
+        }
+        return dd_inf;
+    }
+    if (*this < dd_one) {
+        std::feraiseexcept(FE_INVALID);
+        return dd_nan();
+    }
+    if (*this == dd_one) {
+        return dd_zero;
+    }
+    if (upper > 1e150) {
+        return this->log() + dd_ln2;
+    }
+    if (upper < 1.5) {
+        DoubleDouble t = *this - 1.0;
+        return (t + (t * (t + 2.0)).sqrt()).log1p();
+    }
+    return ((*this + ((*this - 1.0) * (*this + 1.0)).sqrt()).log());
+}
+
+inline DoubleDouble DoubleDouble::atanh() const
+{
+    if (isnan_dd(*this)) {
+        return dd_nan();
+    }
+    if (is_zero(*this)) {
+        return *this;
+    }
+    if (signbit(*this)) {
+        return -(-*this).atanh();
+    }
+    if (*this > dd_one) {
+        std::feraiseexcept(FE_INVALID);
+        return dd_nan();
+    }
+    if (*this == dd_one) {
+        std::feraiseexcept(FE_DIVBYZERO);
+        return dd_inf;
+    }
+    return 0.5 * (2.0 * (*this) / (1.0 - *this)).log1p();
+}
+
+inline DoubleDouble sinh(DoubleDouble const& x)
+{
+    return x.sinh();
+}
+
+inline DoubleDouble cosh(DoubleDouble const& x)
+{
+    return x.cosh();
+}
+
+inline DoubleDouble tanh(DoubleDouble const& x)
+{
+    return x.tanh();
+}
+
+inline DoubleDouble asinh(DoubleDouble const& x)
+{
+    return x.asinh();
+}
+
+inline DoubleDouble acosh(DoubleDouble const& x)
+{
+    return x.acosh();
+}
+
+inline DoubleDouble atanh(DoubleDouble const& x)
+{
+    return x.atanh();
 }
 }
 namespace std {
