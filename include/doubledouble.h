@@ -809,6 +809,7 @@ inline void sincos_taylor(DoubleDouble const& x, DoubleDouble& s, DoubleDouble& 
     c = cos_taylor(x);
 }
 
+#if defined(DOUBLEDOUBLE_PAYNE_HANEK)
 // 2/pi as base-2^24 digits: 2/pi = sum_i two_over_pi_24[i] * 2^(-24*(i+1)).
 // Enough digits to reduce any finite double-double (max exponent ~1024) to full
 // double-double precision (Payne-Hanek).
@@ -883,12 +884,19 @@ inline void payne_hanek_pi2(DoubleDouble const& a, int& q, DoubleDouble& w)
     }
     q = ((nn % 4) + 4) % 4;
 }
+#else
+inline double nearest_integer_as_double(DoubleDouble const& x)
+{
+    return std::floor(x.upper + 0.5);
+}
+#endif
 
 // Reduce `a` (finite, nonzero) to t + j*(pi/2) + k*(pi/24) with t in [-pi/48, pi/48],
 // j in [-2, 2], k in [-6, 6] (all handled by sincos_reduced). Always succeeds (returns
 // true); the bool is kept for call-site compatibility.
 inline bool trig_range_reduce(DoubleDouble const& a, int& j, int& k, DoubleDouble& t)
 {
+#if defined(DOUBLEDOUBLE_PAYNE_HANEK)
     DoubleDouble w;
     if (std::fabs(a.upper) <= dd_pi_4.upper) {
         // Already in [-pi/4, pi/4]: no quadrant reduction needed.
@@ -914,6 +922,21 @@ inline bool trig_range_reduce(DoubleDouble const& a, int& j, int& k, DoubleDoubl
     k = static_cast<int>(std::floor(w.upper / dd_pi_24.upper + 0.5));
     t = w - dd_pi_24*static_cast<double>(k);
     return true;
+#else
+    //
+    const double z = nearest_integer_as_double(a / dd_2pi);
+    const DoubleDouble r = a - dd_2pi*z;
+    j = static_cast<int>(std::floor(r.upper / dd_pi_2.upper + 0.5));
+    if (j < -2 || j > 2) {
+    }
+    t = r - dd_pi_2*static_cast<double>(j);
+    k = static_cast<int>(std::floor(t.upper / dd_pi_24.upper + 0.5));
+    if (std::abs(k) > 6) {
+        return false;
+    }
+    t -= dd_pi_24*static_cast<double>(k);
+    return !isnan(t.upper) && !isnan(t.lower);
+#endif
 }
 
 inline void sincos_reduced(int j, int k, DoubleDouble const& t, DoubleDouble& s, DoubleDouble& c)

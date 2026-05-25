@@ -62,6 +62,10 @@ static const unary_case sin_cases[] = {
     {"pi", 3.14159265358979312e+00, 1.22464679914735321e-16, 2.86889280175963737e-102, 6.66716889325310485e-119, 5e-14},
     {"10", 1.00000000000000000e+01, 0.00000000000000000e+00, -5.44021110889369774e-01, -3.89498986682235567e-17, 5e-14},
     {"1e6+1e-10", 1.00000000000000012e+06, -1.64153218269348140e-11, -3.49993502077617757e-01, 1.80771655912666880e-17, 5e-10},
+#if defined(DOUBLEDOUBLE_PAYNE_HANEK)
+    // Note how 10**24 is not representable as an exact integer in float64, hence we need full double-double Payne-Hanek reduction:
+    {"10**24", 1.0e+24, 16777216.0, -0.9964722291025833, 3.963174237405644e-18, 5e-14},
+#endif
 };
 
 static const unary_case cos_cases[] = {
@@ -1265,7 +1269,7 @@ void test_hyperbolic_identities(CheckIt& test)
         DoubleDouble s = sinh(x);
         DoubleDouble c = cosh(x);
         DoubleDouble t = tanh(x);
-        
+
         DoubleDouble one_check = c*c - s*s;
         assert_close_fp(test, one_check.upper, 1.0, 1e-15, std::string("cosh^2 - sinh^2 near 1 for x=") + std::to_string(val));
         assert_true(test, std::fabs(one_check.lower) < 1e-25, std::string("cosh^2 - sinh^2 lower near 0 for x=") + std::to_string(val));
