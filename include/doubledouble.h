@@ -80,6 +80,7 @@
 #include <cfloat>
 #include <cstdint>
 #include <array>
+#include <ostream>
 #include <vector>
 
 namespace doubledouble {
@@ -163,6 +164,7 @@ public:
 
     explicit operator double() const noexcept { return upper; }
     explicit operator int() const noexcept { return static_cast<int>(upper); }
+    explicit operator bool() const noexcept { return upper != 0.0 || lower != 0.0; }
 
     DoubleDouble operator-() const;
     DoubleDouble operator+(double x) const;
@@ -1374,9 +1376,18 @@ inline bool isnan(DoubleDouble const& arg)
 {
     return isnan(arg.upper) || isnan(arg.lower);
 }
+inline DoubleDouble abs(DoubleDouble const& arg)
+{
+    return arg.abs();
+}
 inline bool isfinite(DoubleDouble const& arg)
 {
     return std::isfinite(arg.upper) && std::isfinite(arg.lower);
+}
+inline std::ostream& operator<<(std::ostream& os, DoubleDouble const& arg)
+{
+    os << static_cast<double>(arg);
+    return os;
 }
 inline bool isless(DoubleDouble const& x, DoubleDouble const& y)
 {
