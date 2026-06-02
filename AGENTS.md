@@ -48,6 +48,11 @@ $ c++ -isystem /opt-4/boost-1.91.0-release/include -O2 -Wall -Wextra -o boost_dd
 ```
 ...and libqd:
 ```console
+$ grep -E '^struct .* dd_real' /src-2/qd-2.3.24/include/qd/dd_real.h
+struct QD_API dd_real {
+$ grep -E 'dd_real::dd_real' /src-2/qd-2.3.24/src/dd_real.cpp | head -1
+dd_real::dd_real(const char *s) {
+$ 
 $ cat libqd_dd.cpp
 #include <cstdio>
 #include <qd/qd_real.h>
