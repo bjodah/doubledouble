@@ -93,7 +93,7 @@ public:
     }
 
     constexpr
-    DoubleDouble(double upper) : upper(upper)
+    DoubleDouble(double upper) : upper(upper), lower(0.0)
     {
         if (isnan(upper)) {
             lower = NAN;
