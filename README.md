@@ -1,3 +1,4 @@
+# DoubleDouble
 `DoubleDouble` is a C++ class that implements a double-double floating point type.
 
 The `DoubleDouble` class defines:
@@ -14,8 +15,7 @@ The library must not be compiled with gcc's `-ffast-math` option or any
 other compiler option that will allow the compiler to reorder or simplify
 arithmetic expressions.
 
-Example
--------
+## Example
 
 Here is a small program to compute the volume of a cone with base radius 2.0
 and height 7.5.
@@ -85,4 +85,11 @@ print(float(vol), float(vol - float(vol)))
 The Python script prints
 ```
 31.41592653589793 1.2246467991473533e-15
+```
+
+
+## Testing
+
+```console
+$ env -C ./tests/ make -B EXTRA_FLAGS=-DDOUBLEDOUBLE_PAYNE_HANEK && ./test_doubledouble   # TODO
 ```
