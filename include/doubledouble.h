@@ -498,7 +498,7 @@ inline bool operator>=(double x, const DoubleDouble& y)
 
 inline DoubleDouble DoubleDouble::powi(int n) const
 {
-    int i = std::abs(n);
+    int i = (n < 0) ? -n : n;
     DoubleDouble b = *this;
     DoubleDouble r(1);
     while (1) {
@@ -882,7 +882,7 @@ inline bool trig_range_reduce(DoubleDouble const& a, int& j, int& k, DoubleDoubl
     }
     t = r - dd_pi_2*static_cast<double>(j);
     k = static_cast<int>(std::floor(t.upper / dd_pi_24.upper + 0.5));
-    if (std::abs(k) > 6) {
+    if (((k < 0) ? -k : k) > 6) {
         return false;
     }
     t -= dd_pi_24*static_cast<double>(k);
@@ -898,7 +898,7 @@ inline void sincos_reduced(int j, int k, DoubleDouble const& t, DoubleDouble& s,
     DoubleDouble sr = sin_t;
     DoubleDouble cr = cos_t;
     if (k != 0) {
-        const int table_index = std::abs(k) - 1;
+        const int table_index = ((k < 0) ? -k : k) - 1;
         const DoubleDouble& sk = sin_table_pi_24[table_index];
         const DoubleDouble& ck = cos_table_pi_24[table_index];
         if (k > 0) {
